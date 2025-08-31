@@ -1,4 +1,4 @@
-# app.py - Updated with Add Engineer functionality
+# app.py - Updated with Delete Engineer and new Auto-fill logic support
 
 import json
 from flask import Flask, jsonify, request, render_template
@@ -15,6 +15,7 @@ def load_data():
         with open(DATA_FILE, 'r') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
+        # Create 10 groups of 5 engineers each
         total_engineers = 50
         group_size = 5
         engineers = [f"Engineer {i+1}" for i in range(total_engineers)]
@@ -23,7 +24,8 @@ def load_data():
         return {
             "groups": groups,
             "assignments": {},
-            "groupRoundRobinIndex": 0
+            "groupRoundRobinIndex": 0,
+            "engineerRoundRobinIndex": 0 # New index for prioritized auto-fill
         }
 
 def save_data(data):
@@ -40,30 +42,39 @@ def handle_data():
         save_data(request.get_json())
         return jsonify({"message": "Data saved successfully!"}), 200
 
-# --- NEW: API Endpoint to Add an Engineer ---
 @app.route("/api/add-engineer", methods=['POST'])
 def add_engineer():
     data = load_data()
     engineer_name = request.get_json().get('name')
-
-    if not engineer_name:
-        return jsonify({"error": "Engineer name is required."}), 400
-
-    # Check if engineer already exists
+    if not engineer_name: return jsonify({"error": "Name is required."}), 400
     all_engineers = [eng for group in data['groups'] for eng in group]
-    if engineer_name in all_engineers:
-        return jsonify({"error": "Engineer already exists."}), 409
-
-    # Find the smallest group to add the new engineer
-    if not data['groups']:
-        data['groups'].append([]) # Create a group if none exist
-
+    if engineer_name in all_engineers: return jsonify({"error": "Engineer already exists."}), 409
+    if not data['groups']: data['groups'].append([])
     smallest_group = min(data['groups'], key=len)
     smallest_group.append(engineer_name)
-    
     save_data(data)
     return jsonify({"message": f"'{engineer_name}' added successfully."}), 201
 
+# --- NEW: API Endpoint to Delete an Engineer ---
+@app.route("/api/delete-engineer", methods=['POST'])
+def delete_engineer():
+    data = load_data()
+    engineer_name = request.get_json().get('name')
+    if not engineer_name: return jsonify({"error": "Name is required."}), 400
+
+    # 1. Remove engineer from their group
+    for group in data['groups']:
+        if engineer_name in group:
+            group.remove(engineer_name)
+            break
+    
+    # 2. Remove engineer from all assignments
+    for day in data['assignments']:
+        if engineer_name in data['assignments'][day]:
+            data['assignments'][day].remove(engineer_name)
+
+    save_data(data)
+    return jsonify({"message": f"'{engineer_name}' deleted successfully."}), 200
 
 # --- Webpage Route ---
 @app.route("/")
