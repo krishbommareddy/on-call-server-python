@@ -1,6 +1,7 @@
-# app.py - Updated with Delete Engineer and new Auto-fill logic support
+# app.py - Updated with Max Shifts, Priority Rotation, and Priority Page
 
 import json
+from datetime import datetime
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 
@@ -15,17 +16,22 @@ def load_data():
         with open(DATA_FILE, 'r') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        # Create 10 groups of 5 engineers each
-        total_engineers = 50
-        group_size = 5
-        engineers = [f"Engineer {i+1}" for i in range(total_engineers)]
-        groups = [engineers[i:i + group_size] for i in range(0, total_engineers, group_size)]
+        # Data structure is now a list of lists of objects
+        engineers = [f"Engineer {i+1}" for i in range(50)]
+        groups = []
+        for i in range(0, 50, 5):
+            group = []
+            for j in range(5):
+                # Each engineer is an object with a name and max shifts
+                group.append({"name": engineers[i+j], "maxShifts": 2})
+            groups.append(group)
         
         return {
             "groups": groups,
             "assignments": {},
-            "groupRoundRobinIndex": 0,
-            "engineerRoundRobinIndex": 0 # New index for prioritized auto-fill
+            "engineerRoundRobinIndex": 0,
+            # Tracks the last month rotation was performed for
+            "lastRotation": datetime.now().strftime('%Y-%m')
         }
 
 def save_data(data):
@@ -34,49 +40,77 @@ def save_data(data):
         json.dump(data, f, indent=4)
 
 # --- API Endpoints ---
-@app.route("/api/data", methods=['GET', 'POST'])
+@app.route("/api/data", methods=['GET'])
 def handle_data():
-    if request.method == 'GET':
-        return jsonify(load_data())
-    if request.method == 'POST':
-        save_data(request.get_json())
-        return jsonify({"message": "Data saved successfully!"}), 200
-
-@app.route("/api/add-engineer", methods=['POST'])
-def add_engineer():
+    # The frontend now sends the month it's viewing, e.g., ?month=2025-09
+    viewing_month = request.args.get('month', datetime.now().strftime('%Y-%m'))
     data = load_data()
-    engineer_name = request.get_json().get('name')
-    if not engineer_name: return jsonify({"error": "Name is required."}), 400
-    all_engineers = [eng for group in data['groups'] for eng in group]
-    if engineer_name in all_engineers: return jsonify({"error": "Engineer already exists."}), 409
-    if not data['groups']: data['groups'].append([])
-    smallest_group = min(data['groups'], key=len)
-    smallest_group.append(engineer_name)
-    save_data(data)
-    return jsonify({"message": f"'{engineer_name}' added successfully."}), 201
 
-# --- NEW: API Endpoint to Delete an Engineer ---
-@app.route("/api/delete-engineer", methods=['POST'])
-def delete_engineer():
+    # --- Automatic Monthly Priority Rotation Logic ---
+    if viewing_month != data.get('lastRotation'):
+        # 1. Rotate Groups: Top group moves to the bottom
+        if data['groups']:
+            top_group = data['groups'].pop(0)
+            data['groups'].append(top_group)
+        
+        # 2. Rotate Individuals within each group: Top person moves to the bottom
+        for group in data['groups']:
+            if group:
+                top_person = group.pop(0)
+                group.append(top_person)
+        
+        data['lastRotation'] = viewing_month
+        save_data(data)
+
+    return jsonify(data)
+
+@app.route("/api/data", methods=['POST'])
+def save_assignments():
+    # This endpoint now only saves assignments and the index
+    new_data = request.get_json()
     data = load_data()
-    engineer_name = request.get_json().get('name')
-    if not engineer_name: return jsonify({"error": "Name is required."}), 400
+    data['assignments'] = new_data.get('assignments', data['assignments'])
+    data['engineerRoundRobinIndex'] = new_data.get('engineerRoundRobinIndex', data['engineerRoundRobinIndex'])
+    save_data(data)
+    return jsonify({"message": "Data saved successfully!"})
 
-    # 1. Remove engineer from their group
-    for group in data['groups']:
-        if engineer_name in group:
-            group.remove(engineer_name)
-            break
-    
-    # 2. Remove engineer from all assignments
-    for day in data['assignments']:
-        if engineer_name in data['assignments'][day]:
-            data['assignments'][day].remove(engineer_name)
+
+@app.route("/api/manage-engineers", methods=['POST'])
+def manage_engineers():
+    # Combined endpoint for adding/deleting engineers to ensure data integrity
+    data = load_data()
+    action = request.get_json().get('action')
+    name = request.get_json().get('name')
+
+    if action == 'add':
+        all_engineers = [eng['name'] for group in data['groups'] for eng in group]
+        if name in all_engineers: return jsonify({"error": "Engineer already exists."}), 409
+        if not data['groups']: data['groups'].append([])
+        smallest_group = min(data['groups'], key=len)
+        smallest_group.append({"name": name, "maxShifts": 2}) # Add as an object
+        message = f"'{name}' added."
+
+    elif action == 'delete':
+        # Remove from groups
+        for group in data['groups']:
+            group[:] = [eng for eng in group if eng.get('name') != name]
+        # Remove from assignments
+        for day in data['assignments']:
+            data['assignments'][day][:] = [eng for eng in data['assignments'][day] if eng != name]
+        message = f"'{name}' deleted."
 
     save_data(data)
-    return jsonify({"message": f"'{engineer_name}' deleted successfully."}), 200
+    return jsonify({"message": message})
 
-# --- Webpage Route ---
+
+# --- NEW: Route for the Priorities Page ---
+@app.route("/priorities")
+def priorities_page():
+    data = load_data()
+    # Pass the current group data to the template
+    return render_template('priorities.html', groups=data['groups'])
+
+
 @app.route("/")
 def home():
     return render_template('scheduler.html')
