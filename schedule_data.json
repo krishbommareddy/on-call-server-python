@@ -1,0 +1,110 @@
+{
+    "groups": [
+        [
+            "Engineer 1",
+            "Engineer 2",
+            "Engineer 3",
+            "Engineer 4",
+            "Engineer 5",
+            "krishna"
+        ],
+        [
+            "Engineer 6",
+            "Engineer 7",
+            "Engineer 8",
+            "Engineer 9",
+            "Engineer 10"
+        ],
+        [
+            "Engineer 11",
+            "Engineer 12",
+            "Engineer 13",
+            "Engineer 14",
+            "Engineer 15"
+        ],
+        [
+            "Engineer 16",
+            "Engineer 17",
+            "Engineer 18",
+            "Engineer 19",
+            "Engineer 20"
+        ],
+        [
+            "Engineer 21",
+            "Engineer 22",
+            "Engineer 23",
+            "Engineer 24",
+            "Engineer 25"
+        ],
+        [
+            "Engineer 26",
+            "Engineer 27",
+            "Engineer 28",
+            "Engineer 29",
+            "Engineer 30"
+        ],
+        [
+            "Engineer 31",
+            "Engineer 32",
+            "Engineer 33",
+            "Engineer 34",
+            "Engineer 35"
+        ],
+        [
+            "Engineer 36",
+            "Engineer 37",
+            "Engineer 38",
+            "Engineer 39",
+            "Engineer 40"
+        ],
+        [
+            "Engineer 41",
+            "Engineer 42",
+            "Engineer 43",
+            "Engineer 44",
+            "Engineer 45"
+        ],
+        [
+            "Engineer 46",
+            "Engineer 47",
+            "Engineer 48",
+            "Engineer 49",
+            "Engineer 50"
+        ]
+    ],
+    "assignments": {
+        "2025-08-02": [
+            "Engineer 1",
+            "Engineer 12",
+            "Engineer 14"
+        ],
+        "2025-08-03": [
+            "krishna"
+        ],
+        "2025-08-09": [
+            "krishna"
+        ],
+        "2025-08-10": [
+            "krishna"
+        ],
+        "2025-08-17": [
+            "krishna"
+        ],
+        "2025-08-30": [
+            "krishna"
+        ],
+        "2025-08-23": [
+            "krishna"
+        ],
+        "2025-08-16": [
+            "krishna"
+        ],
+        "2025-08-24": [
+            "krishna"
+        ],
+        "2025-08-31": [
+            "krishna"
+        ]
+    },
+    "groupRoundRobinIndex": 9
+}

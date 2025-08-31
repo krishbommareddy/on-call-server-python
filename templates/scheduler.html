@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>On-Call Weekend Scheduler</title>
+    <title>On-Call Group Scheduler</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         .calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-        .calendar-day { min-height: 120px; }
-        .weekend-day.unassigned:hover { background-color: #374151; cursor: pointer; }
+        .calendar-day { min-height: 180px; }
+        .weekend-day.available:hover { background-color: #374151; cursor: pointer; }
     </style>
 </head>
 <body class="bg-gray-900 text-white font-sans p-4 sm:p-8">
 
     <div class="max-w-7xl mx-auto">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-indigo-400">On-Call Weekend Scheduler</h1>
-            <p class="text-gray-400 mt-2">Manage your team's weekend shifts with ease.</p>
+            <h1 class="text-4xl font-bold text-indigo-400">On-Call Group Scheduler</h1>
+            <p class="text-gray-400 mt-2">Manage your team's weekend shifts with 5-person groups.</p>
         </header>
 
         <main class="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -41,25 +41,25 @@
                     <select id="team-member-select" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="">-- Select --</option>
                     </select>
-                    <p class="text-xs text-gray-500 mt-2">Select your name, then click an available weekend slot.</p>
                 </div>
 
                 <div>
                     <h4 class="font-medium text-gray-300 mb-2">2. Automated Scheduling</h4>
-                    <button id="auto-fill-btn" class="w-full py-2 px-4 bg-green-600 rounded-md hover:bg-green-700 transition-colors font-semibold">Auto-fill Remaining Slots</button>
+                    <button id="auto-fill-btn" class="w-full py-2 px-4 bg-green-600 rounded-md hover:bg-green-700 transition-colors font-semibold">Auto-fill Empty Days</button>
                 </div>
                 
                 <div>
                     <h4 class="font-medium text-gray-300 mb-2">3. Reset</h4>
                     <button id="reset-btn" class="w-full py-2 px-4 bg-red-600 rounded-md hover:bg-red-700 transition-colors font-semibold">Reset This Month's Schedule</button>
                 </div>
-                
+
                 <div class="border-t border-gray-700 pt-6">
-                    <h4 class="font-medium text-gray-300 mb-2">Add New Team Member</h4>
+                    <h4 class="font-medium text-gray-300 mb-2">Add New Engineer</h4>
                     <div class="flex space-x-2">
                         <input type="text" id="new-member-name" placeholder="Enter name" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white">
                         <button id="add-member-btn" class="py-2 px-4 bg-blue-600 rounded-md hover:bg-blue-700 transition-colors font-semibold">Add</button>
                     </div>
+                    <p class="text-xs text-gray-500 mt-2">The new engineer will be added to the smallest group.</p>
                 </div>
             </div>
         </main>
@@ -70,13 +70,16 @@
         
         // --- CONFIGURATION ---
         const API_URL = '/api/data';
+        const ADD_ENGINEER_URL = '/api/add-engineer';
+        const SHIFT_SIZE = 5;
 
         // --- STATE ---
         let currentDate = new Date();
-        let teamMembers = [];
+        let groups = [];
         let assignments = {};
-        let roundRobinIndex = 0;
+        let groupRoundRobinIndex = 0;
 
+        // --- DOM ELEMENTS ---
         const DOM = {
             calendarGrid: document.getElementById('calendar-grid'),
             currentMonthYear: document.getElementById('current-month-year'),
@@ -90,174 +93,201 @@
         };
 
         // --- API COMMUNICATION ---
-
-        /**
-         * Fetches the latest data from the server and updates the local state.
-         */
         async function loadStateFromServer() {
             try {
                 const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('Failed to fetch data from server.');
-                
+                if (!response.ok) throw new Error('Failed to fetch data.');
                 const data = await response.json();
-                teamMembers = data.teamMembers || [];
+                groups = data.groups || [];
                 assignments = data.assignments || {};
-                roundRobinIndex = data.roundRobinIndex || 0;
-                
-                console.log('Data loaded from server:', { teamMembers, assignments, roundRobinIndex });
+                groupRoundRobinIndex = data.groupRoundRobinIndex || 0;
             } catch (error) {
                 console.error('Error loading data:', error);
-                alert('Could not connect to the server. Please ensure it is running.');
+                alert('Could not connect to the server.');
             }
         }
 
-        /**
-         * Sends the current state to the server to be saved.
-         */
         async function saveStateToServer() {
             try {
-                const state = { teamMembers, assignments, roundRobinIndex };
-                const response = await fetch(API_URL, {
+                const state = { groups, assignments, groupRoundRobinIndex };
+                await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(state),
                 });
-                if (!response.ok) throw new Error('Failed to save data to server.');
-                
-                const result = await response.json();
-                console.log('Server response:', result.message);
             } catch (error) {
                 console.error('Error saving data:', error);
-                alert('Could not save data to the server.');
             }
         }
-        
+
         // --- CORE LOGIC ---
-        
         function populateTeamMemberDropdown() {
-            DOM.teamMemberSelect.options.length = 1; 
-            teamMembers.forEach(member => {
-                const option = document.createElement('option');
-                option.value = member;
-                option.textContent = member;
-                DOM.teamMemberSelect.appendChild(option);
+            DOM.teamMemberSelect.options.length = 1;
+            const allMembers = groups.flat();
+            allMembers.sort().forEach(member => {
+                DOM.teamMemberSelect.add(new Option(member, member));
             });
         }
-        
+
         function getFormattedDate(date) {
             const year = date.getFullYear();
             const month = (date.getMonth() + 1).toString().padStart(2, '0');
             const day = date.getDate().toString().padStart(2, '0');
             return `${year}-${month}-${day}`;
         }
-        
+
         function renderCalendar() {
             DOM.calendarGrid.innerHTML = '';
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
             DOM.currentMonthYear.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`;
+            
             const firstDayOfMonth = new Date(year, month, 1).getDay();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-            for (let i = 0; i < firstDayOfMonth; i++) {
-                DOM.calendarGrid.insertAdjacentHTML('beforeend', '<div class="border border-gray-700 rounded-md"></div>');
-            }
-            
+            for (let i = 0; i < firstDayOfMonth; i++) DOM.calendarGrid.insertAdjacentHTML('beforeend', '<div></div>');
+
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
-                const dayOfWeek = date.getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isWeekend = [0, 6].includes(date.getDay());
                 const dateString = getFormattedDate(date);
-                const assignedPerson = assignments[dateString];
-                const isAssigned = !!assignedPerson;
-
-                DOM.calendarGrid.insertAdjacentHTML('beforeend', `
-                    <div class="calendar-day p-2 border border-gray-700 rounded-md flex flex-col 
-                        ${isWeekend ? 'bg-gray-700/50 weekend-day' : 'bg-gray-800'}
-                        ${isWeekend && !isAssigned ? 'unassigned' : ''}"
-                        ${isWeekend ? `data-date="${dateString}"` : ''}>
-                        <div class="font-bold ${isWeekend ? 'text-indigo-300' : ''}">${day}</div>
-                        ${isWeekend ? `<div class="mt-auto text-center text-sm p-1 rounded-md ${isAssigned ? 'bg-indigo-500 font-semibold' : 'text-gray-400'}">
-                            ${assignedPerson || 'Unassigned'}
-                        </div>` : ''}
-                    </div>`);
+                
+                let dayCellHTML;
+                if (isWeekend) {
+                    const assignedList = assignments[dateString] || [];
+                    const assignedCount = assignedList.length;
+                    const isFull = assignedCount >= SHIFT_SIZE;
+                    const assignedNamesHTML = assignedList.map((name, index) => `<div class="text-xs truncate ${index === 0 ? 'font-bold text-indigo-300' : 'text-gray-400'}">${name}</div>`).join('');
+                    dayCellHTML = `
+                        <div class="calendar-day p-2 border border-gray-700/50 rounded-md flex flex-col bg-gray-800 weekend-day ${!isFull ? 'available' : ''}" data-date="${dateString}">
+                            <div class="font-bold text-indigo-300">${day}</div>
+                            <div class="mt-1 space-y-1 overflow-y-auto flex-grow">${assignedNamesHTML}</div>
+                            <div class="mt-auto text-center text-sm p-1 rounded-md font-semibold ${isFull ? 'bg-red-600' : 'bg-green-600'}">
+                                ${assignedCount}/${SHIFT_SIZE} Assigned
+                            </div>
+                        </div>`;
+                } else {
+                    dayCellHTML = `<div class="p-2"><div class="font-bold">${day}</div></div>`;
+                }
+                DOM.calendarGrid.insertAdjacentHTML('beforeend', dayCellHTML);
             }
         }
-        
+
+        // --- EVENT HANDLER FUNCTIONS ---
         async function handleManualSignUp(e) {
             const selectedMember = DOM.teamMemberSelect.value;
-            if (!selectedMember) return alert('Please select your name.');
+            if (!selectedMember) return alert('Please select your name first.');
+
             const cell = e.target.closest('.weekend-day');
-            if (!cell || !cell.dataset.date || assignments[cell.dataset.date]) return;
-            assignments[cell.dataset.date] = selectedMember;
+            if (!cell) return;
+            
+            const dateString = cell.dataset.date;
+            const assignedList = assignments[dateString] || [];
+
+            if (assignedList.length >= SHIFT_SIZE) return alert('This shift is full.');
+            if (assignedList.includes(selectedMember)) return alert('You are already assigned to this shift.');
+
+            assignedList.push(selectedMember);
+            assignments[dateString] = assignedList;
+            
             renderCalendar();
             await saveStateToServer();
         }
 
         async function handleAutoFill() {
+            if (groups.length === 0) return alert('No groups available to assign.');
+            
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
-            const unassignedDates = [];
-            for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day++) {
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            let assignmentsMade = 0;
+
+            for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
-                if (date.getDay() === 0 || date.getDay() === 6) {
-                    const dateString = getFormattedDate(date);
-                    if (!assignments[dateString]) unassignedDates.push(dateString);
+                if (![0, 6].includes(date.getDay())) continue;
+                
+                const dateString = getFormattedDate(date);
+                if ((assignments[dateString] || []).length === 0) {
+                    const groupToAssign = groups[groupRoundRobinIndex % groups.length];
+                    assignments[dateString] = [...groupToAssign]; // Use a copy of the group array
+                    groupRoundRobinIndex++;
+                    assignmentsMade++;
                 }
             }
-            if (unassignedDates.length === 0) return alert('All slots filled.');
-            const membersSignedUp = new Set(Object.values(assignments).filter(name => teamMembers.includes(name)));
-            unassignedDates.forEach(dateString => {
-                let assigned = false;
-                while (!assigned) {
-                    const person = teamMembers[roundRobinIndex % teamMembers.length];
-                    if (!membersSignedUp.has(person)) {
-                        assignments[dateString] = person;
-                        assigned = true;
-                    }
-                    roundRobinIndex++;
-                }
+            
+            if (assignmentsMade > 0) {
+                renderCalendar();
+                await saveStateToServer();
+            } else {
+                alert('No empty weekend days to auto-fill.');
+            }
+        }
+
+        async function handleResetSchedule() {
+            if (!confirm('Are you sure you want to clear all assignments for this month?')) return;
+            const monthPrefix = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
+            Object.keys(assignments).forEach(dateString => {
+                if (dateString.startsWith(monthPrefix)) delete assignments[dateString];
             });
             renderCalendar();
             await saveStateToServer();
         }
-
-        async function handleResetSchedule() {
-            if (!confirm('Are you sure?')) return;
-            const monthPrefix = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
-            for (const dateString in assignments) {
-                if (dateString.startsWith(monthPrefix)) delete assignments[dateString];
-            }
-            renderCalendar();
-            await saveStateToServer();
-        }
-
+        
         async function handleAddMember() {
             const newName = DOM.newMemberNameInput.value.trim();
             if (!newName) return alert('Please enter a name.');
-            if (teamMembers.includes(newName)) return alert('Member exists.');
-            teamMembers.push(newName);
-            populateTeamMemberDropdown();
-            DOM.newMemberNameInput.value = '';
-            await saveStateToServer();
+
+            try {
+                const response = await fetch(ADD_ENGINEER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName }),
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Failed to add engineer.');
+
+                alert(result.message);
+                DOM.newMemberNameInput.value = '';
+
+                // After successfully adding, just reload the data and re-render the UI
+                await loadStateFromServer();
+                populateTeamMemberDropdown();
+                renderCalendar();
+
+            } catch (error) {
+                console.error('Error adding engineer:', error);
+                alert(`Error: ${error.message}`);
+            }
         }
 
         // --- INITIALIZATION ---
-        
-        async function initializeApp() {
-            await loadStateFromServer(); // Load data from server first
-            populateTeamMemberDropdown();
-            renderCalendar();
 
-            // Attach all event listeners
-            DOM.prevMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); });
-            DOM.nextMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); });
+        // NEW: Function to set up event listeners ONCE
+        function setupEventListeners() {
+            DOM.prevMonthBtn.addEventListener('click', () => { 
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar();
+            });
+            DOM.nextMonthBtn.addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar();
+            });
             DOM.calendarGrid.addEventListener('click', handleManualSignUp);
             DOM.autoFillBtn.addEventListener('click', handleAutoFill);
             DOM.resetBtn.addEventListener('click', handleResetSchedule);
             DOM.addMemberBtn.addEventListener('click', handleAddMember);
         }
+        
+        // SIMPLIFIED: This function now just loads data and renders
+        async function initializeApp() {
+            await loadStateFromServer();
+            populateTeamMemberDropdown();
+            renderCalendar();
+        }
 
+        // Run setup and initialization
+        setupEventListeners();
         initializeApp();
     });
     </script>
