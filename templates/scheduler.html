@@ -34,6 +34,7 @@
 
             <div class="w-full xl:w-96 xl:flex-shrink-0 bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col space-y-6">
                 <h3 class="text-xl font-semibold border-b border-gray-700 pb-3">Controls</h3>
+                <div><a href="/admin" target="_blank" class="w-full block text-center py-2 px-4 bg-gray-600 rounded-md hover:bg-gray-700 font-semibold">Manage Holidays</a></div>
                 <div><a href="/priorities" target="_blank" class="w-full block text-center py-2 px-4 bg-gray-600 rounded-md hover:bg-gray-700 font-semibold">View Priorities</a></div>
                 <div>
                     <label for="team-member-select" class="block mb-2 font-medium">1. Select Name to Add/Remove or View Shifts</label>
@@ -44,7 +45,7 @@
                 <div>
                     <h4 class="font-medium">2. Automated Scheduling</h4>
                     <button id="auto-fill-btn" class="w-full py-2 px-4 bg-green-600 rounded-md hover:bg-green-700 font-semibold">Auto-fill Empty Days</button>
-                     <p class="text-xs text-gray-500 mt-2">Assigns a full group to any empty weekend day.</p>
+                     <p class="text-xs text-gray-500 mt-2">Assigns a full group to any empty on-call day.</p>
                 </div>
                 <div>
                     <h4 class="font-medium">3. Reset</h4>
@@ -72,11 +73,10 @@
         <div class="bg-gray-800 border border-gray-600 rounded-lg shadow-2xl w-full max-w-md">
             <div class="p-4 flex justify-between items-center border-b border-gray-700">
                 <h3 id="modal-title" class="text-lg font-semibold text-indigo-300">Assignments</h3>
-                <button id="modal-close-btn-x" class="text-gray-400 hover:text-white">&times;</button>
+                <button id="modal-close-btn-x" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
             </div>
-            <div id="modal-body" class="p-6 max-h-80 overflow-y-auto">
-                </div>
-            <div class="p-4 bg-gray-900/50 text-right">
+            <div id="modal-body" class="p-6 max-h-80 overflow-y-auto"></div>
+            <div class="p-4 bg-gray-900/50 text-right rounded-b-lg">
                 <button id="modal-close-btn-bottom" class="px-4 py-2 bg-indigo-600 rounded-md hover:bg-indigo-700">Close</button>
             </div>
         </div>
@@ -86,6 +86,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const API_URL = '/api/data';
         const MANAGE_ENGINEERS_URL = '/api/manage-engineers';
+        const HOLIDAYS_URL = '/api/holidays';
 
         let currentDate = new Date();
         let groups = [];
@@ -93,6 +94,7 @@
         let groupRoundRobinIndex = 0;
         let allEngineers = [];
         let selectedEngineer = '';
+        let holidays = new Set(); // FIXED: State variable to hold holidays
 
         const DOM = {
             calendarGrid: document.getElementById('calendar-grid'),
@@ -118,12 +120,18 @@
 
         async function loadStateFromServer() {
             try {
-                const response = await fetch(`${API_URL}?month=${getMonthString(currentDate)}`);
-                const data = await response.json();
+                const dataRes = await fetch(`${API_URL}?month=${getMonthString(currentDate)}`);
+                const data = await dataRes.json();
                 groups = data.groups || [];
                 assignments = data.assignments || {};
                 groupRoundRobinIndex = data.groupRoundRobinIndex || 0;
                 allEngineers = groups.flat();
+
+                // FIXED: Fetch holidays from the server
+                const holidaysRes = await fetch(HOLIDAYS_URL);
+                const holidayList = await holidaysRes.json();
+                holidays = new Set(holidayList);
+
             } catch (error) { console.error('Error loading data:', error); }
         }
 
@@ -139,12 +147,14 @@
         }
 
         function populateDropdowns() {
+            const currentSelection = DOM.teamMemberSelect.value;
             DOM.teamMemberSelect.options.length = 1;
             DOM.deleteMemberSelect.options.length = 1;
             allEngineers.sort((a,b) => a.name.localeCompare(b.name)).forEach(eng => {
                 DOM.teamMemberSelect.add(new Option(eng.name, eng.name));
                 DOM.deleteMemberSelect.add(new Option(eng.name, eng.name));
             });
+            DOM.teamMemberSelect.value = currentSelection;
         }
         
         function getEngineerShiftCount(name, month) {
@@ -163,26 +173,29 @@
 
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
-                const isWeekend = [0, 6].includes(date.getDay());
                 const dateString = getFormattedDate(date);
+
+                // FIXED: Check if the day is a weekend OR a holiday
+                const isWeekend = [0, 6].includes(date.getDay());
+                const isHoliday = holidays.has(dateString);
+                const isOnCallDay = isWeekend || isHoliday;
                 
                 let dayCellHTML = `<div class="p-2"><div class="font-bold text-gray-500">${day}</div></div>`;
-                if (isWeekend) {
+                if (isOnCallDay) {
                     const assigned = assignments[dateString] || [];
                     const count = assigned.length;
                     
                     let namesHTML = assigned.slice(0, 4).map((name, i) => `<div class="text-xs truncate">${i+1}. ${name}</div>`).join('');
                     if (count > 4) {
-                        // This is now a button that opens the modal
                         namesHTML += `<div class="text-xs text-indigo-400 font-bold mt-1 cursor-pointer view-more-btn" data-date="${dateString}">+ ${count - 4} more...</div>`;
                     }
                     
-                    // Highlighting logic
                     const isHighlighted = selectedEngineer && assigned.includes(selectedEngineer) ? 'ring-2 ring-blue-500' : '';
+                    const holidayIndicator = isHoliday && !isWeekend ? '<span class="text-xs text-yellow-400 font-semibold">(Holiday)</span>' : '';
 
                     dayCellHTML = `
                         <div class="calendar-day p-2 border border-gray-700/50 rounded-md flex flex-col bg-gray-800 weekend-day ${isHighlighted}" data-date="${dateString}">
-                            <div class="font-bold text-indigo-300">${day}</div>
+                            <div class="font-bold text-indigo-300 flex justify-between items-center">${day} ${holidayIndicator}</div>
                             <div class="mt-1 space-y-1 overflow-hidden flex-grow">${namesHTML}</div>
                             <div class="mt-auto text-center text-xs sm:text-sm p-1 rounded-md font-semibold ${count > 0 ? 'bg-green-600' : 'bg-gray-600'}">
                                 ${count} Assigned
@@ -193,30 +206,30 @@
             }
         }
         
+        function showDayModal(dateString) {
+            const assigned = assignments[dateString] || [];
+            DOM.modalTitle.textContent = `Assignments for ${dateString}`;
+            DOM.modalBody.innerHTML = '<ol class="list-decimal list-inside space-y-2">' + assigned.map(name => `<li>${name}</li>`).join('') + '</ol>';
+            DOM.modal.classList.remove('hidden');
+        }
+
         async function handleCalendarClick(e) {
-            // Check if a "view more" button was clicked
             if (e.target.classList.contains('view-more-btn')) {
                 showDayModal(e.target.dataset.date);
                 return;
             }
-
             const memberName = DOM.teamMemberSelect.value;
             if (!memberName) return alert('Please select your name from the dropdown first.');
-            
             const cell = e.target.closest('.weekend-day');
             if (!cell) return;
-
             const date = cell.dataset.date;
             const assigned = assignments[date] || [];
             const memberObj = allEngineers.find(eng => eng.name === memberName);
             if (!memberObj) return;
 
-            // NEW: Toggle logic
             if (assigned.includes(memberName)) {
-                // If already assigned, remove them
                 assignments[date] = assigned.filter(name => name !== memberName);
             } else {
-                // If not assigned, add them (after checking max shifts)
                 const shiftCount = getEngineerShiftCount(memberName, getMonthString(currentDate));
                 if (shiftCount >= memberObj.maxShifts) {
                     return alert(`'${memberName}' has reached the max of ${memberObj.maxShifts} shifts this month.`);
@@ -224,7 +237,6 @@
                 assigned.unshift(memberName);
                 assignments[date] = assigned;
             }
-            
             renderCalendar();
             await saveStateToServer();
         }
@@ -236,15 +248,17 @@
 
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
-                if (![0, 6].includes(date.getDay())) continue;
-                
                 const dateString = getFormattedDate(date);
-                if ((assignments[dateString] || []).length === 0) {
-                    const groupToAssign = groups[groupRoundRobinIndex % groups.length];
-                    const availableMembers = groupToAssign.filter(member => getEngineerShiftCount(member.name, getMonthString(currentDate)) < member.maxShifts);
-                    
-                    assignments[dateString] = availableMembers.map(m => m.name);
-                    groupRoundRobinIndex++;
+                const isWeekend = [0, 6].includes(date.getDay());
+                const isHoliday = holidays.has(dateString);
+                
+                if (isWeekend || isHoliday) {
+                    if ((assignments[dateString] || []).length === 0) {
+                        const groupToAssign = groups[groupRoundRobinIndex % groups.length];
+                        const availableMembers = groupToAssign.filter(member => getEngineerShiftCount(member.name, getMonthString(currentDate)) < member.maxShifts);
+                        assignments[dateString] = availableMembers.map(m => m.name);
+                        groupRoundRobinIndex++;
+                    }
                 }
             }
             renderCalendar();
@@ -252,7 +266,7 @@
         }
 
         async function manageEngineer(action, name) {
-            if (!name) return alert('Please enter or select a name.');
+            if (!name) { alert('Please enter or select a name.'); return; }
             try {
                 const res = await fetch(MANAGE_ENGINEERS_URL, {
                     method: 'POST',
@@ -264,14 +278,6 @@
                 await initializeApp();
             } catch (error) { alert(`Error: ${error.message}`); }
         }
-        
-        // NEW: Function to show the modal with assignments for a specific day
-        function showDayModal(dateString) {
-            const assigned = assignments[dateString] || [];
-            DOM.modalTitle.textContent = `Assignments for ${dateString}`;
-            DOM.modalBody.innerHTML = '<ol class="list-decimal list-inside space-y-2">' + assigned.map(name => `<li>${name}</li>`).join('') + '</ol>';
-            DOM.modal.classList.remove('hidden');
-        }
 
         async function initializeApp() {
             await loadStateFromServer();
@@ -282,7 +288,7 @@
         // --- Event Listeners ---
         DOM.prevMonthBtn.addEventListener('click', async () => { currentDate.setMonth(currentDate.getMonth() - 1); await initializeApp(); });
         DOM.nextMonthBtn.addEventListener('click', async () => { currentDate.setMonth(currentDate.getMonth() + 1); await initializeApp(); });
-        DOM.calendarGrid.addEventListener('click', handleCalendarClick); // Consolidated click handler
+        DOM.calendarGrid.addEventListener('click', handleCalendarClick);
         DOM.autoFillBtn.addEventListener('click', handleAutoFill);
         DOM.resetBtn.addEventListener('click', async () => {
              if (!confirm('Clear all assignments for this month?')) return;
@@ -293,7 +299,7 @@
         });
         DOM.teamMemberSelect.addEventListener('change', (e) => {
             selectedEngineer = e.target.value;
-            renderCalendar(); // Re-render to show highlights
+            renderCalendar();
         });
         DOM.addMemberBtn.addEventListener('click', () => {
             const name = DOM.newMemberNameInput.value.trim();
@@ -306,9 +312,9 @@
                 manageEngineer('delete', name);
             }
         });
-        // Listeners for closing the modal
-        DOM.modalCloseBtnX.addEventListener('click', () => DOM.modal.classList.add('hidden'));
-        DOM.modalCloseBtnBottom.addEventListener('click', () => DOM.modal.classList.add('hidden'));
+        const closeModal = () => DOM.modal.classList.add('hidden');
+        DOM.modalCloseBtnX.addEventListener('click', closeModal);
+        DOM.modalCloseBtnBottom.addEventListener('click', closeModal);
 
         initializeApp();
     });
