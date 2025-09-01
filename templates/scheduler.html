@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>On-Call Group Scheduler</title>
+    <title>On-Call Scheduler</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
@@ -13,12 +13,10 @@
     </style>
 </head>
 <body class="bg-gray-900 text-white font-sans p-4 sm:p-6 md:p-8">
-
     <div class="max-w-screen-2xl mx-auto">
         <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-indigo-400">On-Call Group Scheduler</h1>
+            <h1 class="text-3xl md:text-4xl font-bold text-indigo-400">On-Call Scheduler</h1>
         </header>
-
         <main class="flex flex-col xl:flex-row gap-8">
             <div class="w-full xl:flex-1 bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg">
                 <div class="flex items-center justify-between mb-6">
@@ -31,70 +29,62 @@
                 </div>
                 <div id="calendar-grid" class="grid calendar-grid gap-1 md:gap-2"></div>
             </div>
-
             <div class="w-full xl:w-96 xl:flex-shrink-0 bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col space-y-6">
                 <h3 class="text-xl font-semibold border-b border-gray-700 pb-3">Controls</h3>
-                <div><a href="/admin" target="_blank" class="w-full block text-center py-2 px-4 bg-gray-600 rounded-md hover:bg-gray-700 font-semibold">Manage Holidays</a></div>
-                <div><a href="/priorities" target="_blank" class="w-full block text-center py-2 px-4 bg-gray-600 rounded-md hover:bg-gray-700 font-semibold">View Priorities</a></div>
+                <div class="space-y-2">
+                    <a href="/admin" target="_blank" class="w-full block text-center py-2 px-4 bg-gray-600 rounded-md hover:bg-gray-700 font-semibold">Manage Holidays</a>
+                    <a href="/priorities" target="_blank" class="w-full block text-center py-2 px-4 bg-gray-600 rounded-md hover:bg-gray-700 font-semibold">View Priorities</a>
+                </div>
                 <div>
-                    <label for="team-member-select" class="block mb-2 font-medium">1. Select Name to Add/Remove or View Shifts</label>
+                    <h4 class="font-medium text-gray-300">1. Generate Schedule</h4>
+                    <button id="generate-schedule-btn" class="w-full py-2 px-4 bg-purple-600 rounded-md hover:bg-purple-700 font-semibold">Generate Optimal Schedule</button>
+                    <p class="text-xs text-gray-500 mt-2">Uses fairness algorithm to create the schedule for this month.</p>
+                </div>
+                <div>
+                    <label for="team-member-select" class="block mb-2 font-medium text-gray-300">2. Manual Adjustments</label>
                     <select id="team-member-select" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-md">
-                        <option value="">-- Select Your Name --</option>
+                        <option value="">-- Select Name to Add/Remove --</option>
                     </select>
                 </div>
                 <div>
-                    <h4 class="font-medium">2. Automated Scheduling</h4>
-                    <button id="auto-fill-btn" class="w-full py-2 px-4 bg-green-600 rounded-md hover:bg-green-700 font-semibold">Auto-fill Empty Days</button>
-                     <p class="text-xs text-gray-500 mt-2">Assigns a full group to any empty on-call day.</p>
-                </div>
-                <div>
-                    <h4 class="font-medium">3. Reset</h4>
+                    <h4 class="font-medium text-gray-300">3. Reset</h4>
                     <button id="reset-btn" class="w-full py-2 px-4 bg-red-600 rounded-md hover:bg-red-700 font-semibold">Reset This Month's Schedule</button>
                 </div>
-                
                 <div class="border-t border-gray-700 pt-6 space-y-4">
                     <h4 class="font-medium text-gray-300">Team Management</h4>
                     <div class="flex space-x-2">
-                        <input type="text" id="new-member-name" placeholder="New engineer name" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white">
-                        <button id="add-member-btn" class="py-2 px-4 bg-blue-600 rounded-md hover:bg-blue-700 font-semibold">Add</button>
+                        <input type="text" id="new-member-name" placeholder="New engineer name" class="w-full p-2 bg-gray-700 border rounded-md">
+                        <button id="add-member-btn" class="py-2 px-4 bg-blue-600 rounded-md hover:bg-blue-700">Add</button>
                     </div>
                     <div class="flex space-x-2">
-                         <select id="delete-member-select" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-md">
-                            <option value="">-- Select Engineer to Delete --</option>
+                        <select id="delete-member-select" class="w-full p-2 bg-gray-700 border rounded-md">
+                            <option value="">-- Select to Delete --</option>
                         </select>
-                        <button id="delete-member-btn" class="py-2 px-4 bg-red-800 rounded-md hover:bg-red-900 font-semibold">Delete</button>
+                        <button id="delete-member-btn" class="py-2 px-4 bg-red-800 rounded-md hover:bg-red-900">Delete</button>
                     </div>
                 </div>
             </div>
         </main>
     </div>
-
     <div id="day-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
         <div class="bg-gray-800 border border-gray-600 rounded-lg shadow-2xl w-full max-w-md">
-            <div class="p-4 flex justify-between items-center border-b border-gray-700">
-                <h3 id="modal-title" class="text-lg font-semibold text-indigo-300">Assignments</h3>
-                <button id="modal-close-btn-x" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-            </div>
+            <div class="p-4 flex justify-between items-center border-b"><h3 id="modal-title" class="text-lg font-semibold">Assignments</h3><button id="modal-close-btn-x" class="text-2xl">&times;</button></div>
             <div id="modal-body" class="p-6 max-h-80 overflow-y-auto"></div>
-            <div class="p-4 bg-gray-900/50 text-right rounded-b-lg">
-                <button id="modal-close-btn-bottom" class="px-4 py-2 bg-indigo-600 rounded-md hover:bg-indigo-700">Close</button>
-            </div>
+            <div class="p-4 bg-gray-900/50 text-right"><button id="modal-close-btn-bottom" class="px-4 py-2 bg-indigo-600 rounded-md">Close</button></div>
         </div>
     </div>
-
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const API_URL = '/api/data';
+        const GENERATE_URL = '/api/generate-schedule';
         const MANAGE_ENGINEERS_URL = '/api/manage-engineers';
         const HOLIDAYS_URL = '/api/holidays';
 
         let currentDate = new Date();
-        let groups = [];
         let assignments = {};
-        let groupRoundRobinIndex = 0;
         let allEngineers = [];
+        let holidays = new Set();
         let selectedEngineer = '';
-        let holidays = new Set(); // FIXED: State variable to hold holidays
 
         const DOM = {
             calendarGrid: document.getElementById('calendar-grid'),
@@ -102,12 +92,12 @@
             prevMonthBtn: document.getElementById('prev-month-btn'),
             nextMonthBtn: document.getElementById('next-month-btn'),
             teamMemberSelect: document.getElementById('team-member-select'),
-            autoFillBtn: document.getElementById('auto-fill-btn'),
+            generateBtn: document.getElementById('generate-schedule-btn'),
             resetBtn: document.getElementById('reset-btn'),
-            newMemberNameInput: document.getElementById('new-member-name'),
             addMemberBtn: document.getElementById('add-member-btn'),
-            deleteMemberSelect: document.getElementById('delete-member-select'),
+            newMemberNameInput: document.getElementById('new-member-name'),
             deleteMemberBtn: document.getElementById('delete-member-btn'),
+            deleteMemberSelect: document.getElementById('delete-member-select'),
             modal: document.getElementById('day-modal'),
             modalTitle: document.getElementById('modal-title'),
             modalBody: document.getElementById('modal-body'),
@@ -120,32 +110,28 @@
 
         async function loadStateFromServer() {
             try {
-                const dataRes = await fetch(`${API_URL}?month=${getMonthString(currentDate)}`);
+                const [dataRes, holidaysRes] = await Promise.all([
+                    fetch(`${API_URL}?month=${getMonthString(currentDate)}`),
+                    fetch(HOLIDAYS_URL)
+                ]);
                 const data = await dataRes.json();
-                groups = data.groups || [];
-                assignments = data.assignments || {};
-                groupRoundRobinIndex = data.groupRoundRobinIndex || 0;
-                allEngineers = groups.flat();
-
-                // FIXED: Fetch holidays from the server
-                const holidaysRes = await fetch(HOLIDAYS_URL);
                 const holidayList = await holidaysRes.json();
+                assignments = data.assignments || {};
+                allEngineers = (data.groups || []).flat();
                 holidays = new Set(holidayList);
-
             } catch (error) { console.error('Error loading data:', error); }
         }
 
-        async function saveStateToServer() {
+        async function saveAssignments() {
             try {
-                const currentState = { groups, assignments, groupRoundRobinIndex, lastRotation: getMonthString(currentDate) };
                 await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(currentState),
+                    body: JSON.stringify({ assignments }),
                 });
             } catch (error) { console.error('Error saving data:', error); }
         }
-
+        
         function populateDropdowns() {
             const currentSelection = DOM.teamMemberSelect.value;
             DOM.teamMemberSelect.options.length = 1;
@@ -155,10 +141,6 @@
                 DOM.deleteMemberSelect.add(new Option(eng.name, eng.name));
             });
             DOM.teamMemberSelect.value = currentSelection;
-        }
-        
-        function getEngineerShiftCount(name, month) {
-            return Object.keys(assignments).filter(d => d.startsWith(month) && assignments[d].includes(name)).length;
         }
 
         function renderCalendar() {
@@ -174,8 +156,6 @@
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
                 const dateString = getFormattedDate(date);
-
-                // FIXED: Check if the day is a weekend OR a holiday
                 const isWeekend = [0, 6].includes(date.getDay());
                 const isHoliday = holidays.has(dateString);
                 const isOnCallDay = isWeekend || isHoliday;
@@ -186,19 +166,17 @@
                     const count = assigned.length;
                     
                     let namesHTML = assigned.slice(0, 4).map((name, i) => `<div class="text-xs truncate">${i+1}. ${name}</div>`).join('');
-                    if (count > 4) {
-                        namesHTML += `<div class="text-xs text-indigo-400 font-bold mt-1 cursor-pointer view-more-btn" data-date="${dateString}">+ ${count - 4} more...</div>`;
-                    }
+                    if (count > 4) namesHTML += `<div class="text-xs text-indigo-400 font-bold mt-1 cursor-pointer view-more-btn" data-date="${dateString}">+ ${count - 4} more...</div>`;
                     
                     const isHighlighted = selectedEngineer && assigned.includes(selectedEngineer) ? 'ring-2 ring-blue-500' : '';
-                    const holidayIndicator = isHoliday && !isWeekend ? '<span class="text-xs text-yellow-400 font-semibold">(Holiday)</span>' : '';
+                    const holidayIndicator = isHoliday && !isWeekend ? '<span class="text-xs text-yellow-400">(H)</span>' : '';
 
                     dayCellHTML = `
                         <div class="calendar-day p-2 border border-gray-700/50 rounded-md flex flex-col bg-gray-800 weekend-day ${isHighlighted}" data-date="${dateString}">
                             <div class="font-bold text-indigo-300 flex justify-between items-center">${day} ${holidayIndicator}</div>
                             <div class="mt-1 space-y-1 overflow-hidden flex-grow">${namesHTML}</div>
-                            <div class="mt-auto text-center text-xs sm:text-sm p-1 rounded-md font-semibold ${count > 0 ? 'bg-green-600' : 'bg-gray-600'}">
-                                ${count} Assigned
+                            <div class="mt-auto text-center text-xs sm:text-sm p-1 rounded-md font-semibold ${count === 5 ? 'bg-green-600' : 'bg-yellow-600'}">
+                                ${count} / 5 Assigned
                             </div>
                         </div>`;
                 }
@@ -214,59 +192,30 @@
         }
 
         async function handleCalendarClick(e) {
-            if (e.target.classList.contains('view-more-btn')) {
-                showDayModal(e.target.dataset.date);
-                return;
-            }
+            if (e.target.classList.contains('view-more-btn')) { showDayModal(e.target.dataset.date); return; }
+            
             const memberName = DOM.teamMemberSelect.value;
-            if (!memberName) return alert('Please select your name from the dropdown first.');
+            if (!memberName) return alert('Please select a name to make a manual adjustment.');
+            
             const cell = e.target.closest('.weekend-day');
             if (!cell) return;
+
             const date = cell.dataset.date;
             const assigned = assignments[date] || [];
-            const memberObj = allEngineers.find(eng => eng.name === memberName);
-            if (!memberObj) return;
 
             if (assigned.includes(memberName)) {
                 assignments[date] = assigned.filter(name => name !== memberName);
             } else {
-                const shiftCount = getEngineerShiftCount(memberName, getMonthString(currentDate));
-                if (shiftCount >= memberObj.maxShifts) {
-                    return alert(`'${memberName}' has reached the max of ${memberObj.maxShifts} shifts this month.`);
-                }
                 assigned.unshift(memberName);
                 assignments[date] = assigned;
             }
+            
             renderCalendar();
-            await saveStateToServer();
-        }
-        
-        async function handleAutoFill() {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day);
-                const dateString = getFormattedDate(date);
-                const isWeekend = [0, 6].includes(date.getDay());
-                const isHoliday = holidays.has(dateString);
-                
-                if (isWeekend || isHoliday) {
-                    if ((assignments[dateString] || []).length === 0) {
-                        const groupToAssign = groups[groupRoundRobinIndex % groups.length];
-                        const availableMembers = groupToAssign.filter(member => getEngineerShiftCount(member.name, getMonthString(currentDate)) < member.maxShifts);
-                        assignments[dateString] = availableMembers.map(m => m.name);
-                        groupRoundRobinIndex++;
-                    }
-                }
-            }
-            renderCalendar();
-            await saveStateToServer();
+            await saveAssignments();
         }
 
         async function manageEngineer(action, name) {
-            if (!name) { alert('Please enter or select a name.'); return; }
+            if (!name) return;
             try {
                 const res = await fetch(MANAGE_ENGINEERS_URL, {
                     method: 'POST',
@@ -289,17 +238,37 @@
         DOM.prevMonthBtn.addEventListener('click', async () => { currentDate.setMonth(currentDate.getMonth() - 1); await initializeApp(); });
         DOM.nextMonthBtn.addEventListener('click', async () => { currentDate.setMonth(currentDate.getMonth() + 1); await initializeApp(); });
         DOM.calendarGrid.addEventListener('click', handleCalendarClick);
-        DOM.autoFillBtn.addEventListener('click', handleAutoFill);
         DOM.resetBtn.addEventListener('click', async () => {
-             if (!confirm('Clear all assignments for this month?')) return;
+             if (!confirm('Clear assignments for this month?')) return;
             const prefix = getMonthString(currentDate);
             Object.keys(assignments).forEach(date => { if (date.startsWith(prefix)) delete assignments[date]; });
             renderCalendar();
-            await saveStateToServer();
+            await saveAssignments();
         });
         DOM.teamMemberSelect.addEventListener('change', (e) => {
             selectedEngineer = e.target.value;
             renderCalendar();
+        });
+        DOM.generateBtn.addEventListener('click', async () => {
+            DOM.generateBtn.textContent = 'Generating...';
+            DOM.generateBtn.disabled = true;
+            try {
+                const response = await fetch(GENERATE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ month: getMonthString(currentDate) })
+                });
+                const data = await response.json();
+                assignments = data.assignments;
+                allEngineers = (data.groups || []).flat();
+                renderCalendar();
+            } catch (error) {
+                console.error('Error generating schedule:', error);
+                alert('Failed to generate schedule.');
+            } finally {
+                DOM.generateBtn.textContent = 'Generate Optimal Schedule';
+                DOM.generateBtn.disabled = false;
+            }
         });
         DOM.addMemberBtn.addEventListener('click', () => {
             const name = DOM.newMemberNameInput.value.trim();
@@ -308,7 +277,7 @@
         });
         DOM.deleteMemberBtn.addEventListener('click', () => {
             const name = DOM.deleteMemberSelect.value;
-            if (name && confirm(`Are you sure you want to delete '${name}'?`)) {
+            if (name && confirm(`Delete '${name}'?`)) {
                 manageEngineer('delete', name);
             }
         });
