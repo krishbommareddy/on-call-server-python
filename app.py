@@ -1,4 +1,4 @@
-# app.py - Updated with Max Shifts, Priority Rotation, and Priority Page
+# app.py - Definitive Version with All Features
 
 import json
 from datetime import datetime
@@ -16,21 +16,17 @@ def load_data():
         with open(DATA_FILE, 'r') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        # Data structure is now a list of lists of objects
         engineers = [f"Engineer {i+1}" for i in range(50)]
         groups = []
         for i in range(0, 50, 5):
-            group = []
-            for j in range(5):
-                # Each engineer is an object with a name and max shifts
-                group.append({"name": engineers[i+j], "maxShifts": 2})
+            # Each engineer is an object with a name and a default max of 2 shifts
+            group = [{"name": engineers[i+j], "maxShifts": 2} for j in range(5)]
             groups.append(group)
         
         return {
             "groups": groups,
             "assignments": {},
-            "engineerRoundRobinIndex": 0,
-            # Tracks the last month rotation was performed for
+            "groupRoundRobinIndex": 0,
             "lastRotation": datetime.now().strftime('%Y-%m')
         }
 
@@ -42,23 +38,16 @@ def save_data(data):
 # --- API Endpoints ---
 @app.route("/api/data", methods=['GET'])
 def handle_data():
-    # The frontend now sends the month it's viewing, e.g., ?month=2025-09
     viewing_month = request.args.get('month', datetime.now().strftime('%Y-%m'))
     data = load_data()
 
-    # --- Automatic Monthly Priority Rotation Logic ---
+    # Automatic Monthly Priority Rotation Logic
     if viewing_month != data.get('lastRotation'):
-        # 1. Rotate Groups: Top group moves to the bottom
         if data['groups']:
-            top_group = data['groups'].pop(0)
-            data['groups'].append(top_group)
-        
-        # 2. Rotate Individuals within each group: Top person moves to the bottom
+            data['groups'].append(data['groups'].pop(0)) # Rotate groups
         for group in data['groups']:
             if group:
-                top_person = group.pop(0)
-                group.append(top_person)
-        
+                group.append(group.pop(0)) # Rotate engineers within groups
         data['lastRotation'] = viewing_month
         save_data(data)
 
@@ -66,50 +55,51 @@ def handle_data():
 
 @app.route("/api/data", methods=['POST'])
 def save_assignments():
-    # This endpoint now only saves assignments and the index
+    # Saves the entire state sent from the client
     new_data = request.get_json()
-    data = load_data()
-    data['assignments'] = new_data.get('assignments', data['assignments'])
-    data['engineerRoundRobinIndex'] = new_data.get('engineerRoundRobinIndex', data['engineerRoundRobinIndex'])
-    save_data(data)
+    save_data(new_data)
     return jsonify({"message": "Data saved successfully!"})
-
 
 @app.route("/api/manage-engineers", methods=['POST'])
 def manage_engineers():
-    # Combined endpoint for adding/deleting engineers to ensure data integrity
     data = load_data()
     action = request.get_json().get('action')
     name = request.get_json().get('name')
 
+    if not name:
+        return jsonify({"error": "Engineer name is required."}), 400
+
     if action == 'add':
         all_engineers = [eng['name'] for group in data['groups'] for eng in group]
-        if name in all_engineers: return jsonify({"error": "Engineer already exists."}), 409
+        if name in all_engineers:
+            return jsonify({"error": "Engineer already exists."}), 409
+        
         if not data['groups']: data['groups'].append([])
-        smallest_group = min(data['groups'], key=len)
-        smallest_group.append({"name": name, "maxShifts": 2}) # Add as an object
-        message = f"'{name}' added."
+        # Find the group with the fewest members to add the new engineer
+        smallest_group = min(data['groups'], key=len, default=[])
+        smallest_group.append({"name": name, "maxShifts": 2})
+        message = f"'{name}' was added."
 
     elif action == 'delete':
         # Remove from groups
         for group in data['groups']:
             group[:] = [eng for eng in group if eng.get('name') != name]
-        # Remove from assignments
+        # Remove from all assignments
         for day in data['assignments']:
             data['assignments'][day][:] = [eng for eng in data['assignments'][day] if eng != name]
-        message = f"'{name}' deleted."
+        message = f"'{name}' was deleted."
+    
+    else:
+        return jsonify({"error": "Invalid action."}), 400
 
     save_data(data)
     return jsonify({"message": message})
 
-
-# --- NEW: Route for the Priorities Page ---
+# --- Webpage Routes ---
 @app.route("/priorities")
 def priorities_page():
     data = load_data()
-    # Pass the current group data to the template
     return render_template('priorities.html', groups=data['groups'])
-
 
 @app.route("/")
 def home():
