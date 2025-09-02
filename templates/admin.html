@@ -24,6 +24,10 @@
                     <div>
                         <h2 class="text-2xl font-semibold text-green-400 mb-3">Team Management</h2>
                         <div class="space-y-3">
+                            <select id="team-select-manage" class="w-full p-2 bg-gray-700 rounded-md">
+                                <option value="DC">DC</option>
+                                <option value="BSN">BSN</option>
+                            </select>
                             <div class="flex space-x-2"><input type="text" id="new-member-name" placeholder="New engineer" class="w-full p-2 bg-gray-700 rounded-md"><button id="add-member-btn" class="py-2 px-4 bg-blue-600 rounded-md">Add</button></div>
                             <div class="flex space-x-2"><select id="delete-member-select" class="w-full p-2 bg-gray-700 rounded-md"><option value="">-- Select to Delete --</option></select><button id="delete-member-btn" class="py-2 px-4 bg-red-800 rounded-md">Delete</button></div>
                         </div>
@@ -34,7 +38,7 @@
                     <div id="reports-container" class="space-y-6">
                         <div>
                             <div class="flex justify-between items-center mb-2">
-                                <h3 class="font-semibold">Employees Without Preferences</h3>
+                                <h3 class="font-semibold">Engineers Without Preferences</h3>
                                 <button id="copy-no-prefs" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy List</button>
                             </div>
                             <div id="no-prefs-list" class="text-sm bg-gray-900/50 p-3 rounded-md max-h-40 overflow-y-auto"></div>
@@ -71,20 +75,22 @@
             monthSelect: document.getElementById('month-select'),
             generateBtn: document.getElementById('generate-schedule-btn'),
             resetBtn: document.getElementById('reset-btn'),
+            teamSelectManage: document.getElementById('team-select-manage'),
             addMemberBtn: document.getElementById('add-member-btn'),
             newMemberNameInput: document.getElementById('new-member-name'),
             deleteMemberBtn: document.getElementById('delete-member-btn'),
             deleteMemberSelect: document.getElementById('delete-member-select'),
-            noPrefsList: document.getElementById('no-prefs-list'),
-            discrepancyList: document.getElementById('discrepancy-list'),
-            copyNoPrefsBtn: document.getElementById('copy-no-prefs'),
-            copyDiscrepancyBtn: document.getElementById('copy-discrepancy'),
             holidayCalendarGrid: document.getElementById('calendar-grid'),
             holidayMonthYear: document.getElementById('current-month-year'),
             holidayPrevBtn: document.getElementById('prev-month-btn'),
             holidayNextBtn: document.getElementById('next-month-btn'),
             saveHolidaysBtn: document.getElementById('save-holidays-btn'),
+            noPrefsList: document.getElementById('no-prefs-list'),
+            discrepancyList: document.getElementById('discrepancy-list'),
+            copyNoPrefsBtn: document.getElementById('copy-no-prefs'),
+            copyDiscrepancyBtn: document.getElementById('copy-discrepancy'),
         };
+
         async function apiCall(url, method = 'GET', body = null) {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
             if (body) options.body = JSON.stringify(body);
@@ -93,6 +99,7 @@
             if (!response.ok) throw new Error(data.error || 'API request failed');
             return data;
         }
+
         function renderHolidayCalendar() {
             DOM.holidayCalendarGrid.innerHTML = '';
             const year = holidayCalendarDate.getFullYear(), month = holidayCalendarDate.getMonth();
@@ -105,36 +112,35 @@
                 DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', `<div class="p-2 border border-gray-700 rounded-md text-center cursor-pointer hover:bg-gray-700 ${isSelected ? 'day-selected' : ''}" data-date="${dateString}">${day}</div>`);
             }
         }
+
         async function fetchAndRenderReports() {
             const month = DOM.monthSelect.value;
+            const team = DOM.teamSelectManage.value;
             try {
-                const data = await apiCall(`/api/admin-dashboard?month=${month}`);
-                DOM.noPrefsList.innerHTML = data.noPreferences.length ? data.noPreferences.map(e => `<div class="p-1">${e.name} <span class="text-gray-500">- ${e.group}</span></div>`).join('') : '<div class="p-1 text-gray-400">All have submitted.</div>';
-                DOM.discrepancyList.innerHTML = data.shiftDiscrepancies.length ? data.shiftDiscrepancies.map(d => `<div class="p-1">${d.name} <span class="text-gray-500">(${d.group})</span> - Req: ${d.requested}, Got: ${d.actual}</div>`).join('') : '<div class="p-1 text-gray-400">No discrepancies.</div>';
+                const data = await apiCall(`/api/admin-dashboard?month=${month}&team=${team}`);
+                DOM.noPrefsList.innerHTML = data.noPreferences.length ? data.noPreferences.map(e => `<div class="p-1">${e.name}</div>`).join('') : '<div class="p-1 text-gray-400">All have submitted.</div>';
+                DOM.discrepancyList.innerHTML = data.shiftDiscrepancies.length ? data.shiftDiscrepancies.map(d => `<div class="p-1">${d.name} - Req: ${d.requested}, Got: ${d.actual}</div>`).join('') : '<div class="p-1 text-gray-400">No discrepancies.</div>';
             } catch (error) { console.error("Failed to render reports:", error); }
         }
+        
         async function populateDeleteDropdown() {
             try {
-                const data = await apiCall('/api/data');
-                DOM.deleteMemberSelect.options.length = 1;
-                (data.groups || []).flat().sort((a,b) => a.name.localeCompare(b.name)).forEach(eng => DOM.deleteMemberSelect.add(new Option(eng.name, eng.name)));
+                const team = DOM.teamSelectManage.value;
+                const data = await apiCall(`/api/data?team=${team}`);
+                DOM.deleteMemberSelect.innerHTML = '<option value="">-- Select to Delete --</option>';
+                const allEngineers = (data.groups || []).flat();
+                allEngineers.sort((a,b) => a.name.localeCompare(b.name)).forEach(eng => DOM.deleteMemberSelect.add(new Option(eng.name, eng.name)));
             } catch (error) { console.error("Failed to populate dropdown:", error); }
         }
+        
         function setupEventListeners() {
-            DOM.generateBtn.addEventListener('click', async () => {
-                const month = DOM.monthSelect.value;
-                if (!month || !confirm(`Generate a new schedule for ${month}? This will overwrite existing assignments.`)) return;
-                try {
-                    await apiCall('/api/generate-schedule', 'POST', { month });
-                    alert(`Schedule for ${month} generated successfully!`);
-                    await fetchAndRenderReports();
-                } catch (error) { alert(`Error: ${error.message}`); }
-            });
+            DOM.teamSelectManage.addEventListener('change', () => { populateDeleteDropdown(); fetchAndRenderReports(); });
+            DOM.monthSelect.addEventListener('change', fetchAndRenderReports);
             DOM.addMemberBtn.addEventListener('click', async () => {
                 const name = DOM.newMemberNameInput.value.trim();
                 if (!name) return;
                 try {
-                    await apiCall('/api/team', 'POST', { action: 'add', name });
+                    await apiCall('/api/team', 'POST', { action: 'add', name, team: DOM.teamSelectManage.value });
                     DOM.newMemberNameInput.value = '';
                     await populateDeleteDropdown();
                 } catch (error) { alert(`Error: ${error.message}`); }
@@ -143,16 +149,26 @@
                 const name = DOM.deleteMemberSelect.value;
                 if (!name || !confirm(`Delete ${name}?`)) return;
                 try {
-                    await apiCall('/api/team', 'POST', { action: 'delete', name });
+                    await apiCall('/api/team', 'POST', { action: 'delete', name, team: DOM.teamSelectManage.value });
                     await populateDeleteDropdown();
+                } catch (error) { alert(`Error: ${error.message}`); }
+            });
+            DOM.generateBtn.addEventListener('click', async () => {
+                const month = DOM.monthSelect.value;
+                if (!month || !confirm(`Generate a new schedule for ${month}? This will overwrite existing assignments for all teams.`)) return;
+                try {
+                    await apiCall('/api/generate-schedule', 'POST', { month });
+                    alert(`Schedule for ${month} generated successfully!`);
+                    await fetchAndRenderReports();
                 } catch (error) { alert(`Error: ${error.message}`); }
             });
             DOM.resetBtn.addEventListener('click', async () => {
                 const month = DOM.monthSelect.value;
-                if (!month || !confirm(`Delete all assignments for ${month}?`)) return;
+                const team = DOM.teamSelectManage.value;
+                if (!month || !confirm(`Delete all assignments for ${month} for the ${team} team?`)) return;
                 try {
-                    const data = await apiCall('/api/reset-schedule', 'POST', { month });
-                    alert(data.message);
+                    await apiCall('/api/reset-schedule', 'POST', { month, team });
+                    alert('Schedule reset!');
                     await fetchAndRenderReports();
                 } catch(error) { alert(`Error: ${error.message}`); }
             });
@@ -171,17 +187,18 @@
             });
             DOM.holidayPrevBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() - 1); renderHolidayCalendar(); });
             DOM.holidayNextBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() + 1); renderHolidayCalendar(); });
-            DOM.monthSelect.addEventListener('change', fetchAndRenderReports);
-            const copyHandler = (textProvider, button) => async () => {
-                const text = textProvider();
+            
+            const copyHandler = (listElement, button) => async () => {
+                const text = [...listElement.querySelectorAll('div[class="p-1"]')].map(div => div.textContent).join('\n');
                 if(!text) return;
                 await navigator.clipboard.writeText(text);
                 button.textContent = 'Copied!';
                 setTimeout(() => button.textContent = 'Copy List', 2000);
             };
-            DOM.copyNoPrefsBtn.addEventListener('click', copyHandler(() => [...DOM.noPrefsList.querySelectorAll('div')].map(div => div.textContent).join('\n'), DOM.copyNoPrefsBtn));
-            DOM.copyDiscrepancyBtn.addEventListener('click', copyHandler(() => [...DOM.discrepancyList.querySelectorAll('div')].map(div => div.textContent).join('\n'), DOM.copyDiscrepancyBtn));
+            DOM.copyNoPrefsBtn.addEventListener('click', copyHandler(DOM.noPrefsList, DOM.copyNoPrefsBtn));
+            DOM.copyDiscrepancyBtn.addEventListener('click', copyHandler(DOM.discrepancyList, DOM.copyDiscrepancyBtn));
         }
+
         async function init() {
             const now = new Date();
             DOM.monthSelect.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -191,6 +208,7 @@
             await populateDeleteDropdown();
             await fetchAndRenderReports();
         }
+
         setupEventListeners();
         init();
     });
