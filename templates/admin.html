@@ -64,11 +64,9 @@
         <div class="text-center"><a href="/" class="text-indigo-400 hover:underline">Back to Main Scheduler View</a></div>
     </div>
     <script>
-    // This script has been refactored for clarity and correctness.
     document.addEventListener('DOMContentLoaded', () => {
         let holidayCalendarDate = new Date();
         let selectedHolidays = new Set();
-
         const DOM = {
             monthSelect: document.getElementById('month-select'),
             generateBtn: document.getElementById('generate-schedule-btn'),
@@ -87,7 +85,6 @@
             holidayNextBtn: document.getElementById('next-month-btn'),
             saveHolidaysBtn: document.getElementById('save-holidays-btn'),
         };
-
         async function apiCall(url, method = 'GET', body = null) {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
             if (body) options.body = JSON.stringify(body);
@@ -96,14 +93,11 @@
             if (!response.ok) throw new Error(data.error || 'API request failed');
             return data;
         }
-
         function renderHolidayCalendar() {
             DOM.holidayCalendarGrid.innerHTML = '';
-            const year = holidayCalendarDate.getFullYear();
-            const month = holidayCalendarDate.getMonth();
+            const year = holidayCalendarDate.getFullYear(), month = holidayCalendarDate.getMonth();
             DOM.holidayMonthYear.textContent = `${holidayCalendarDate.toLocaleString('default', { month: 'long' })} ${year}`;
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDay = new Date(year, month, 1).getDay(), daysInMonth = new Date(year, month + 1, 0).getDate();
             for (let i = 0; i < firstDay; i++) DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', '<div></div>');
             for (let day = 1; day <= daysInMonth; day++) {
                 const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
@@ -111,42 +105,31 @@
                 DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', `<div class="p-2 border border-gray-700 rounded-md text-center cursor-pointer hover:bg-gray-700 ${isSelected ? 'day-selected' : ''}" data-date="${dateString}">${day}</div>`);
             }
         }
-        
         async function fetchAndRenderReports() {
             const month = DOM.monthSelect.value;
             try {
                 const data = await apiCall(`/api/admin-dashboard?month=${month}`);
                 DOM.noPrefsList.innerHTML = data.noPreferences.length ? data.noPreferences.map(e => `<div class="p-1">${e.name} <span class="text-gray-500">- ${e.group}</span></div>`).join('') : '<div class="p-1 text-gray-400">All have submitted.</div>';
                 DOM.discrepancyList.innerHTML = data.shiftDiscrepancies.length ? data.shiftDiscrepancies.map(d => `<div class="p-1">${d.name} <span class="text-gray-500">(${d.group})</span> - Req: ${d.requested}, Got: ${d.actual}</div>`).join('') : '<div class="p-1 text-gray-400">No discrepancies.</div>';
-            } catch (error) {
-                console.error("Failed to render reports:", error);
-                DOM.noPrefsList.innerHTML = `<div class="p-1 text-red-400">Error loading report.</div>`;
-                DOM.discrepancyList.innerHTML = `<div class="p-1 text-red-400">Error loading report.</div>`;
-            }
+            } catch (error) { console.error("Failed to render reports:", error); }
         }
-
         async function populateDeleteDropdown() {
             try {
                 const data = await apiCall('/api/data');
                 DOM.deleteMemberSelect.options.length = 1;
-                (data.groups || []).flat().sort((a,b) => a.name.localeCompare(b.name)).forEach(eng => {
-                    DOM.deleteMemberSelect.add(new Option(eng.name, eng.name));
-                });
+                (data.groups || []).flat().sort((a,b) => a.name.localeCompare(b.name)).forEach(eng => DOM.deleteMemberSelect.add(new Option(eng.name, eng.name)));
             } catch (error) { console.error("Failed to populate dropdown:", error); }
         }
-        
         function setupEventListeners() {
             DOM.generateBtn.addEventListener('click', async () => {
                 const month = DOM.monthSelect.value;
-                if (!month) return alert('Please select a month.');
-                if (!confirm(`Generate a new schedule for ${month}? This will overwrite existing assignments.`)) return;
+                if (!month || !confirm(`Generate a new schedule for ${month}? This will overwrite existing assignments.`)) return;
                 try {
                     await apiCall('/api/generate-schedule', 'POST', { month });
                     alert(`Schedule for ${month} generated successfully!`);
                     await fetchAndRenderReports();
                 } catch (error) { alert(`Error: ${error.message}`); }
             });
-
             DOM.addMemberBtn.addEventListener('click', async () => {
                 const name = DOM.newMemberNameInput.value.trim();
                 if (!name) return;
@@ -156,7 +139,6 @@
                     await populateDeleteDropdown();
                 } catch (error) { alert(`Error: ${error.message}`); }
             });
-
             DOM.deleteMemberBtn.addEventListener('click', async () => {
                 const name = DOM.deleteMemberSelect.value;
                 if (!name || !confirm(`Delete ${name}?`)) return;
@@ -165,39 +147,31 @@
                     await populateDeleteDropdown();
                 } catch (error) { alert(`Error: ${error.message}`); }
             });
-            
             DOM.resetBtn.addEventListener('click', async () => {
                 const month = DOM.monthSelect.value;
-                if (!month) return alert('Please select a month to reset.');
-                if (!confirm(`Delete all assignments for ${month}?`)) return;
+                if (!month || !confirm(`Delete all assignments for ${month}?`)) return;
                 try {
                     const data = await apiCall('/api/reset-schedule', 'POST', { month });
                     alert(data.message);
                     await fetchAndRenderReports();
                 } catch(error) { alert(`Error: ${error.message}`); }
             });
-
-            // FIXED: This listener is now correctly attached
             DOM.holidayCalendarGrid.addEventListener('click', (e) => {
                 const cell = e.target.closest('div[data-date]');
                 if (!cell) return;
                 const date = cell.dataset.date;
-                if (selectedHolidays.has(date)) selectedHolidays.delete(date);
-                else selectedHolidays.add(date);
+                if (selectedHolidays.has(date)) selectedHolidays.delete(date); else selectedHolidays.add(date);
                 cell.classList.toggle('day-selected');
             });
-
             DOM.saveHolidaysBtn.addEventListener('click', async () => {
                 try {
                     await apiCall('/api/holidays', 'POST', { holidays: Array.from(selectedHolidays) });
                     alert('Holidays saved!');
                 } catch(error) { alert(`Error: ${error.message}`); }
             });
-
             DOM.holidayPrevBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() - 1); renderHolidayCalendar(); });
             DOM.holidayNextBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() + 1); renderHolidayCalendar(); });
             DOM.monthSelect.addEventListener('change', fetchAndRenderReports);
-            
             const copyHandler = (textProvider, button) => async () => {
                 const text = textProvider();
                 if(!text) return;
@@ -205,11 +179,9 @@
                 button.textContent = 'Copied!';
                 setTimeout(() => button.textContent = 'Copy List', 2000);
             };
-
             DOM.copyNoPrefsBtn.addEventListener('click', copyHandler(() => [...DOM.noPrefsList.querySelectorAll('div')].map(div => div.textContent).join('\n'), DOM.copyNoPrefsBtn));
             DOM.copyDiscrepancyBtn.addEventListener('click', copyHandler(() => [...DOM.discrepancyList.querySelectorAll('div')].map(div => div.textContent).join('\n'), DOM.copyDiscrepancyBtn));
         }
-
         async function init() {
             const now = new Date();
             DOM.monthSelect.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -219,7 +191,6 @@
             await populateDeleteDropdown();
             await fetchAndRenderReports();
         }
-
         setupEventListeners();
         init();
     });

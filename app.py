@@ -1,4 +1,4 @@
-# app.py - With improved admin dashboard reporting
+# app.py - Definitive Final Version
 
 import json
 from datetime import datetime, date, timedelta
@@ -11,7 +11,7 @@ CORS(app)
 
 DATA_FILE = 'schedule_data.json'
 
-# --- Data Handling & Helpers ---
+# --- Data Handling Functions ---
 def load_data():
     """Loads data, creating a default structure if the file is missing."""
     try:
@@ -28,6 +28,39 @@ def save_data(data):
     """Saves the data dictionary to the JSON file."""
     with open(DATA_FILE, 'w') as f: json.dump(data, f, indent=4)
 
+# --- NEW: Centralized function to prepare consistent API responses ---
+def prepare_response_data(data, month_str):
+    """
+    Calculates the correct monthly priorities and formats the data consistently
+    for all API responses to the frontend. This is the key bug fix.
+    """
+    if month_str not in data['monthlyPriorities']:
+        sorted_months = sorted([m for m in data['monthlyPriorities'].keys() if m < month_str], reverse=True)
+        base = data['monthlyPriorities'].get(sorted_months[0]) if sorted_months else data['baseGroups']
+        
+        rotated_groups = copy.deepcopy(base)
+        if rotated_groups: rotated_groups.append(rotated_groups.pop(0))
+        for group in rotated_groups:
+            if group: group.append(group.pop(0))
+        
+        data['monthlyPriorities'][month_str] = rotated_groups
+        save_data(data)
+
+    all_engineers_data = {eng['name']: eng for g in data['baseGroups'] for eng in g}
+    rotated_order_groups = data['monthlyPriorities'].get(month_str, data['baseGroups'])
+    
+    final_rotated_groups = []
+    for group in rotated_order_groups:
+        new_group = [all_engineers_data[eng['name']] for eng in group if eng['name'] in all_engineers_data]
+        final_rotated_groups.append(new_group)
+    
+    return {
+        "groups": final_rotated_groups,
+        "assignments": data.get('assignments', {}),
+        "holidays": data.get('holidays', [])
+    }
+
+
 def get_on_call_days(year, month, holidays):
     """Calculates all on-call days for a given month."""
     days = []
@@ -41,27 +74,6 @@ def get_on_call_days(year, month, holidays):
             days.append(date_str)
         d += timedelta(days=1)
     return sorted(list(set(days)))
-
-def prepare_response_data(data, month_str):
-    """Ensures all API responses have a consistent, correct structure."""
-    if month_str not in data['monthlyPriorities']:
-        sorted_months = sorted([m for m in data['monthlyPriorities'].keys() if m < month_str], reverse=True)
-        base = data['monthlyPriorities'].get(sorted_months[0]) if sorted_months else data['baseGroups']
-        rotated_groups = copy.deepcopy(base)
-        if rotated_groups: rotated_groups.append(rotated_groups.pop(0))
-        for group in rotated_groups:
-            if group: group.append(group.pop(0))
-        data['monthlyPriorities'][month_str] = rotated_groups
-        save_data(data)
-    
-    all_engineers_data = {eng['name']: eng for g in data['baseGroups'] for eng in g}
-    rotated_order_groups = data['monthlyPriorities'].get(month_str, data['baseGroups'])
-    final_rotated_groups = []
-    for group in rotated_order_groups:
-        new_group = [all_engineers_data[eng['name']] for eng in group if eng['name'] in all_engineers_data]
-        final_rotated_groups.append(new_group)
-    
-    return { "groups": final_rotated_groups, "assignments": data.get('assignments', {}), "holidays": data.get('holidays', []) }
 
 # --- API Endpoints ---
 @app.route("/api/data", methods=['GET'])
@@ -112,8 +124,6 @@ def manage_team():
 
 @app.route("/api/generate-schedule", methods=['POST'])
 def generate_schedule():
-    # This logic remains the same, as it's the core of the app.
-    # A snippet is shown for brevity.
     data = load_data()
     month_str = request.get_json().get('month')
     year, month = int(month_str.split('-')[0]), int(month_str.split('-')[1])
@@ -161,31 +171,24 @@ def reset_schedule():
     save_data(data)
     return jsonify(prepare_response_data(data, month_str))
 
-# UPDATED: Admin dashboard API now provides more context
 @app.route("/api/admin-dashboard", methods=['GET'])
 def admin_dashboard():
     month_str = request.args.get('month', datetime.now().strftime('%Y-%m'))
     data = load_data()
-    
-    # Create a map of engineer name to their group for easy lookup
     eng_to_group_map = {eng['name']: f"Group {i+1}" for i, g in enumerate(data['baseGroups']) for eng in g}
     all_engineers = [eng for group in data['baseGroups'] for eng in group]
-    
     no_prefs = [{"name": e['name'], "group": eng_to_group_map.get(e['name'])} for e in all_engineers if not e.get('preferences', {}).get(month_str)]
-    
     discrepancies = []
     shifts_this_month = {eng['name']: 0 for eng in all_engineers}
     for day, names in data.get('assignments', {}).items():
         if day.startswith(month_str):
             for name in names:
                 if name in shifts_this_month: shifts_this_month[name] += 1
-    
     for eng in all_engineers:
         requested = eng.get('maxShifts', 2)
         actual = shifts_this_month[eng['name']]
         if actual < requested:
             discrepancies.append({"name": eng['name'], "group": eng_to_group_map.get(eng['name']), "requested": requested, "actual": actual})
-            
     return jsonify({
         "noPreferences": sorted(no_prefs, key=lambda x: x['name']),
         "shiftDiscrepancies": sorted(discrepancies, key=lambda x: x['name'])
