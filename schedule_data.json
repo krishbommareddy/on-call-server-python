@@ -3,33 +3,54 @@
         [
             {
                 "name": "Engineer 1",
-                "maxShifts": 2,
-                "preferences": {},
-                "deficit": 0.0
+                "maxShifts": 3,
+                "preferences": {
+                    "2025-09": [
+                        "2025-09-06",
+                        "2025-09-13",
+                        "2025-09-20",
+                        "2025-09-07",
+                        "2025-09-14",
+                        "2025-09-21",
+                        "2025-09-27",
+                        "2025-09-28"
+                    ],
+                    "2025-10": [
+                        "2025-10-04",
+                        "2025-10-11",
+                        "2025-10-18",
+                        "2025-10-25",
+                        "2025-10-12",
+                        "2025-10-05",
+                        "2025-10-26",
+                        "2025-10-19"
+                    ]
+                },
+                "deficit": -88.35
             },
             {
                 "name": "Engineer 2",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 3",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 4",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 5",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             }
         ],
         [
@@ -37,31 +58,31 @@
                 "name": "Engineer 6",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 7",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 8",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 9",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 10",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             }
         ],
         [
@@ -69,31 +90,31 @@
                 "name": "Engineer 11",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 12",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 13",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 14",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 15",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             }
         ],
         [
@@ -101,31 +122,31 @@
                 "name": "Engineer 16",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 17",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 18",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 19",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 20",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             }
         ],
         [
@@ -133,31 +154,42 @@
                 "name": "Engineer 21",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 22",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 23",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 24",
                 "maxShifts": 2,
-                "preferences": {},
-                "deficit": 0.0
+                "preferences": {
+                    "2025-09": [
+                        "2025-09-13",
+                        "2025-09-06",
+                        "2025-09-20",
+                        "2025-09-27",
+                        "2025-09-14",
+                        "2025-09-07",
+                        "2025-09-21",
+                        "2025-09-28"
+                    ]
+                },
+                "deficit": -135.85
             },
             {
                 "name": "Engineer 25",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             }
         ],
         [
@@ -165,31 +197,31 @@
                 "name": "Engineer 26",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 27",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 28",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 29",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 30",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             }
         ],
         [
@@ -197,31 +229,31 @@
                 "name": "Engineer 31",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 32",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 33",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 34",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 35",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             }
         ],
         [
@@ -229,31 +261,31 @@
                 "name": "Engineer 36",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 37",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 38",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 39",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 40",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             }
         ],
         [
@@ -261,31 +293,31 @@
                 "name": "Engineer 41",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 42",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 43",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 7.6
             },
             {
                 "name": "Engineer 44",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 8.549999999999999
             },
             {
                 "name": "Engineer 45",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 8.549999999999999
             }
         ],
         [
@@ -293,31 +325,31 @@
                 "name": "Engineer 46",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 8.549999999999999
             },
             {
                 "name": "Engineer 47",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 8.549999999999999
             },
             {
                 "name": "Engineer 48",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 8.549999999999999
             },
             {
                 "name": "Engineer 49",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 8.549999999999999
             },
             {
                 "name": "Engineer 50",
                 "maxShifts": 2,
                 "preferences": {},
-                "deficit": 0.0
+                "deficit": 8.549999999999999
             }
         ]
     ],
@@ -965,8 +997,396 @@
                     "deficit": 0.0
                 }
             ]
+        ],
+        "2025-11": [
+            [
+                {
+                    "name": "Engineer 19",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 20",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 16",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 17",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 18",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 24",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 25",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 21",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 22",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 23",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 29",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 30",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 26",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 27",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 28",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 34",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 35",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 31",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 32",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 33",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 39",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 40",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 36",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 37",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 38",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 44",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 45",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 41",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 42",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 43",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 49",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 50",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 46",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 47",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 48",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 4",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 5",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 1",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 2",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 3",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 9",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 10",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 6",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 7",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 8",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ],
+            [
+                {
+                    "name": "Engineer 14",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 15",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 11",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 12",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                },
+                {
+                    "name": "Engineer 13",
+                    "maxShifts": 2,
+                    "preferences": {},
+                    "deficit": 0.0
+                }
+            ]
         ]
     },
-    "assignments": {},
-    "holidays": []
+    "assignments": {
+        "2025-09-01": [
+            "Engineer 1",
+            "Engineer 2",
+            "Engineer 3",
+            "Engineer 4",
+            "Engineer 5"
+        ],
+        "2025-09-06": [
+            "Engineer 1",
+            "Engineer 24",
+            "Engineer 6",
+            "Engineer 7",
+            "Engineer 8"
+        ],
+        "2025-09-07": [
+            "Engineer 9",
+            "Engineer 10",
+            "Engineer 11",
+            "Engineer 12",
+            "Engineer 13"
+        ],
+        "2025-09-13": [
+            "Engineer 24",
+            "Engineer 14",
+            "Engineer 15",
+            "Engineer 16",
+            "Engineer 17"
+        ],
+        "2025-09-14": [
+            "Engineer 18",
+            "Engineer 19",
+            "Engineer 20",
+            "Engineer 21",
+            "Engineer 22"
+        ],
+        "2025-09-20": [
+            "Engineer 23",
+            "Engineer 25",
+            "Engineer 26",
+            "Engineer 27",
+            "Engineer 28"
+        ],
+        "2025-09-21": [
+            "Engineer 29",
+            "Engineer 30",
+            "Engineer 31",
+            "Engineer 32",
+            "Engineer 33"
+        ],
+        "2025-09-27": [
+            "Engineer 34",
+            "Engineer 35",
+            "Engineer 36",
+            "Engineer 37",
+            "Engineer 38"
+        ],
+        "2025-09-28": [
+            "Engineer 39",
+            "Engineer 40",
+            "Engineer 41",
+            "Engineer 42",
+            "Engineer 43"
+        ]
+    },
+    "holidays": [
+        "2025-09-01"
+    ]
 }
