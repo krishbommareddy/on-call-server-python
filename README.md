@@ -1,5 +1,10 @@
 # on-call-server-python
+
+source venv/bin/activate
+flask run --host=0.0.0.0
+
 ## Core Architecture
+
 Web Application: A complete, single-page-style application accessible from any device on your network.
 
 Python Backend: A robust Flask server that handles all logic and data storage.
