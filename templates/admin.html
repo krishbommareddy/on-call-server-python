@@ -5,7 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>.day-selected { background-color: #4f46e5 !important; }</style>
+    <style>
+        .day-selected { background-color: #4f46e5 !important; }
+
+        /* MODIFICATION: Corrected styles for sticky header and column scrolling */
+        .preference-table { border-collapse: collapse; width: 100%; min-width: fit-content; }
+        .preference-table th, .preference-table td { border: 1px solid #4b5563; padding: 0.5rem; text-align: center; white-space: nowrap; }
+        
+        /* Sticky Header Row */
+        .preference-table thead tr {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+        }
+        .preference-table thead th {
+            background-color: #374151;
+        }
+
+        /* Sticky First Column (Engineer Name) */
+        .preference-table .engineer-name {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            text-align: left;
+            font-weight: bold;
+            min-width: 180px;
+        }
+        
+        /* Top-left corner cell needs highest z-index */
+        .preference-table thead .engineer-name {
+            z-index: 40;
+        }
+
+        /* Rank Highlighting */
+        .preference-table .rank-1 { background-color: #16a34a; color: white; font-weight: bold; }
+        .preference-table .rank-2 { background-color: #15803d; }
+        .preference-table .rank-3 { background-color: #166534; }
+
+        /* Zebra Striping */
+        .preference-table tbody tr:nth-child(odd) { background-color: #2a3340; }
+        .preference-table tbody tr:nth-child(even) { background-color: #1f2937; }
+        .preference-table .engineer-name.odd-row { background-color: #2a3340; }
+        .preference-table .engineer-name.even-row { background-color: #1f2937; }
+    </style>
 </head>
 <body class="bg-gray-900 text-white p-8">
     <div class="max-w-7xl mx-auto space-y-8">
@@ -22,44 +64,37 @@
                         </div>
                     </div>
                     <div>
-                        <h2 class="text-2xl font-semibold text-green-400 mb-3">Team Management</h2>
+                        <h2 class="text-2xl font-semibold text-green-400 mb-3">Team Management & Report Filter</h2>
                         <div class="space-y-3">
-                            <select id="team-select-manage" class="w-full p-2 bg-gray-700 rounded-md">
-                                <option value="DC">DC</option>
-                                <option value="BSN">BSN</option>
-                            </select>
+                            <select id="team-select-manage" class="w-full p-2 bg-gray-700 rounded-md"><option value="DC">DC</option><option value="BSN">BSN</option></select>
                             <div class="flex space-x-2"><input type="text" id="new-member-name" placeholder="New engineer" class="w-full p-2 bg-gray-700 rounded-md"><button id="add-member-btn" class="py-2 px-4 bg-blue-600 rounded-md">Add</button></div>
                             <div class="flex space-x-2"><select id="delete-member-select" class="w-full p-2 bg-gray-700 rounded-md"><option value="">-- Select to Delete --</option></select><button id="delete-member-btn" class="py-2 px-4 bg-red-800 rounded-md">Delete</button></div>
                         </div>
                     </div>
                 </div>
                 <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-semibold text-green-400 mb-4">Monthly Reports</h2>
+                    <h2 class="text-2xl font-semibold text-green-400 mb-4">Monthly Summary</h2>
                     <div id="reports-container" class="space-y-6">
                         <div>
-                            <div class="flex justify-between items-center mb-2">
-                                <h3 class="font-semibold">Engineers Without Preferences</h3>
-                                <button id="copy-no-prefs" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy List</button>
-                            </div>
+                            <div class="flex justify-between items-center mb-2"><h3 class="font-semibold">Engineers Without Preferences</h3><button id="copy-no-prefs" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy List</button></div>
                             <div id="no-prefs-list" class="text-sm bg-gray-900/50 p-3 rounded-md max-h-40 overflow-y-auto"></div>
                         </div>
                         <div>
-                            <div class="flex justify-between items-center mb-2">
-                                <h3 class="font-semibold">Shift Discrepancy Report</h3>
-                                <button id="copy-discrepancy" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy List</button>
-                            </div>
+                            <div class="flex justify-between items-center mb-2"><h3 class="font-semibold">Shift Discrepancy Report</h3><button id="copy-discrepancy" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy List</button></div>
                             <div id="discrepancy-list" class="text-sm bg-gray-900/50 p-3 rounded-md max-h-40 overflow-y-auto"></div>
                         </div>
+                    </div>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg col-span-1 lg:col-span-2">
+                    <h2 class="text-2xl font-semibold text-green-400 mb-4">All Team Preferences & Requested Shifts</h2>
+                    <div id="preferences-list-container" class="overflow-auto max-h-[500px] text-sm rounded-md border border-gray-700">
+                        <div id="preferences-list"></div>
                     </div>
                 </div>
             </div>
             <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
                 <h2 class="text-2xl font-semibold text-green-400 mb-3">Holiday Management</h2>
-                <div class="flex items-center justify-between mb-4">
-                    <button id="prev-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&larr;</button>
-                    <h3 id="current-month-year" class="text-xl font-semibold"></h3>
-                    <button id="next-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&rarr;</button>
-                </div>
+                <div class="flex items-center justify-between mb-4"><button id="prev-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&larr;</button><h3 id="current-month-year" class="text-xl font-semibold"></h3><button id="next-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&rarr;</button></div>
                 <div class="grid grid-cols-7 text-center font-bold text-gray-400 mb-2"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
                 <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
                 <div class="text-right mt-4"><button id="save-holidays-btn" class="px-6 py-2 bg-green-600 rounded-md font-semibold">Save Holidays</button></div>
@@ -72,30 +107,22 @@
         let holidayCalendarDate = new Date();
         let selectedHolidays = new Set();
         const DOM = {
-            monthSelect: document.getElementById('month-select'),
-            generateBtn: document.getElementById('generate-schedule-btn'),
-            resetBtn: document.getElementById('reset-btn'),
-            teamSelectManage: document.getElementById('team-select-manage'),
-            addMemberBtn: document.getElementById('add-member-btn'),
-            newMemberNameInput: document.getElementById('new-member-name'),
-            deleteMemberBtn: document.getElementById('delete-member-btn'),
-            deleteMemberSelect: document.getElementById('delete-member-select'),
-            holidayCalendarGrid: document.getElementById('calendar-grid'),
-            holidayMonthYear: document.getElementById('current-month-year'),
-            holidayPrevBtn: document.getElementById('prev-month-btn'),
-            holidayNextBtn: document.getElementById('next-month-btn'),
-            saveHolidaysBtn: document.getElementById('save-holidays-btn'),
-            noPrefsList: document.getElementById('no-prefs-list'),
-            discrepancyList: document.getElementById('discrepancy-list'),
-            copyNoPrefsBtn: document.getElementById('copy-no-prefs'),
-            copyDiscrepancyBtn: document.getElementById('copy-discrepancy'),
+            monthSelect: document.getElementById('month-select'), generateBtn: document.getElementById('generate-schedule-btn'),
+            resetBtn: document.getElementById('reset-btn'), teamSelectManage: document.getElementById('team-select-manage'),
+            addMemberBtn: document.getElementById('add-member-btn'), newMemberNameInput: document.getElementById('new-member-name'),
+            deleteMemberBtn: document.getElementById('delete-member-btn'), deleteMemberSelect: document.getElementById('delete-member-select'),
+            holidayCalendarGrid: document.getElementById('calendar-grid'), holidayMonthYear: document.getElementById('current-month-year'),
+            holidayPrevBtn: document.getElementById('prev-month-btn'), holidayNextBtn: document.getElementById('next-month-btn'),
+            saveHolidaysBtn: document.getElementById('save-holidays-btn'), noPrefsList: document.getElementById('no-prefs-list'),
+            discrepancyList: document.getElementById('discrepancy-list'), preferencesList: document.getElementById('preferences-list'),
+            copyNoPrefsBtn: document.getElementById('copy-no-prefs'), copyDiscrepancyBtn: document.getElementById('copy-discrepancy'),
         };
 
         async function apiCall(url, method = 'GET', body = null) {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
             if (body) options.body = JSON.stringify(body);
             const response = await fetch(url, options);
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(data.error || 'API request failed');
             return data;
         }
@@ -108,41 +135,110 @@
             for (let i = 0; i < firstDay; i++) DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', '<div></div>');
             for (let day = 1; day <= daysInMonth; day++) {
                 const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-                const isSelected = selectedHolidays.has(dateString);
-                DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', `<div class="p-2 border border-gray-700 rounded-md text-center cursor-pointer hover:bg-gray-700 ${isSelected ? 'day-selected' : ''}" data-date="${dateString}">${day}</div>`);
+                DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', `<div class="p-2 border border-gray-700 rounded-md text-center cursor-pointer hover:bg-gray-700 ${selectedHolidays.has(dateString) ? 'day-selected' : ''}" data-date="${dateString}">${day}</div>`);
             }
         }
 
+        function renderAllTeamPreferenceTables(allTeamPreferences, onCallDays) {
+            DOM.preferencesList.innerHTML = '';
+            const teamNames = Object.keys(allTeamPreferences).sort((a, b) => a === 'DC' ? -1 : b === 'DC' ? 1 : a.localeCompare(b));
+            if (teamNames.length === 0 || onCallDays.length === 0) {
+                DOM.preferencesList.innerHTML = '<p class="p-4 text-gray-400">No preference data available for this month.</p>';
+                return;
+            }
+            teamNames.forEach(teamName => {
+                const preferences = allTeamPreferences[teamName];
+                const header = document.createElement('h3');
+                header.className = 'text-xl font-semibold text-indigo-300 p-4 bg-gray-900 sticky top-0 z-10';
+                header.textContent = `${teamName} Team Preferences`;
+                DOM.preferencesList.appendChild(header);
+                if (!preferences.length) {
+                    const noData = document.createElement('p');
+                    noData.className = 'p-4 text-gray-400';
+                    noData.textContent = `No engineers found or no preferences submitted for the ${teamName} team.`;
+                    DOM.preferencesList.appendChild(noData);
+                    return;
+                }
+                const tableContainer = document.createElement('div');
+                tableContainer.className = 'overflow-x-auto';
+                const table = document.createElement('table');
+                table.className = 'preference-table';
+                const thead = table.createTHead();
+                const headerRow = thead.insertRow();
+                const thName = document.createElement('th');
+                thName.textContent = 'Engineer (Wants)';
+                thName.className = 'engineer-name';
+                headerRow.appendChild(thName);
+                onCallDays.forEach(day => {
+                    const th = document.createElement('th');
+                    th.textContent = day.split('-')[2];
+                    headerRow.appendChild(th);
+                });
+                const tbody = table.createTBody();
+                preferences.forEach((eng, index) => {
+                    const row = tbody.insertRow();
+                    const cellName = row.insertCell();
+                    cellName.className = `engineer-name ${index % 2 === 0 ? 'even-row' : 'odd-row'}`;
+                    cellName.textContent = `${eng.name} (${eng.maxShifts})`;
+                    const prefMap = new Map(eng.preferences.map((date, i) => [date, i + 1]));
+                    onCallDays.forEach(day => {
+                        const cell = row.insertCell();
+                        const rank = prefMap.get(day);
+                        if (rank) {
+                            cell.textContent = rank;
+                            if (rank <= 3) cell.classList.add(`rank-${rank}`);
+                        }
+                    });
+                });
+                tableContainer.appendChild(table);
+                DOM.preferencesList.appendChild(tableContainer);
+            });
+        }
+
         async function fetchAndRenderReports() {
-            const month = DOM.monthSelect.value;
-            const team = DOM.teamSelectManage.value;
+            const month = DOM.monthSelect.value, team = DOM.teamSelectManage.value;
             try {
                 const data = await apiCall(`/api/admin-dashboard?month=${month}&team=${team}`);
-                DOM.noPrefsList.innerHTML = data.noPreferences.length ? data.noPreferences.map(e => `<div class="p-1">${e.name}</div>`).join('') : '<div class="p-1 text-gray-400">All have submitted.</div>';
+                DOM.noPrefsList.innerHTML = data.noPreferences.length ? data.noPreferences.map(e => `<div class="p-1">${e.name}</div>`).join('') : '<div class="p-1 text-gray-400">All submitted.</div>';
                 DOM.discrepancyList.innerHTML = data.shiftDiscrepancies.length ? data.shiftDiscrepancies.map(d => `<div class="p-1">${d.name} - Req: ${d.requested}, Got: ${d.actual}</div>`).join('') : '<div class="p-1 text-gray-400">No discrepancies.</div>';
+                renderAllTeamPreferenceTables(data.allTeamPreferences, data.onCallDays);
             } catch (error) { console.error("Failed to render reports:", error); }
         }
         
         async function populateDeleteDropdown() {
             try {
-                const team = DOM.teamSelectManage.value;
-                const data = await apiCall(`/api/data?team=${team}`);
+                const data = await apiCall(`/api/data?team=${DOM.teamSelectManage.value}`);
                 DOM.deleteMemberSelect.innerHTML = '<option value="">-- Select to Delete --</option>';
-                const allEngineers = (data.groups || []).flat();
-                allEngineers.sort((a,b) => a.name.localeCompare(b.name)).forEach(eng => DOM.deleteMemberSelect.add(new Option(eng.name, eng.name)));
+                (data.groups || []).flat().sort((a, b) => a.name.localeCompare(b.name)).forEach(eng => DOM.deleteMemberSelect.add(new Option(eng.name, eng.name)));
             } catch (error) { console.error("Failed to populate dropdown:", error); }
         }
         
-        function setupEventListeners() {
-            DOM.teamSelectManage.addEventListener('change', () => { populateDeleteDropdown(); fetchAndRenderReports(); });
-            DOM.monthSelect.addEventListener('change', fetchAndRenderReports);
+        function setupActionHandlers() {
+            DOM.generateBtn.addEventListener('click', async () => {
+                const month = DOM.monthSelect.value;
+                if (!month || !confirm(`Generate schedule for ${month}? This overwrites existing assignments.`)) return;
+                try {
+                    await apiCall('/api/generate-schedule', 'POST', { month });
+                    alert(`Schedule for ${month} generated!`); await fetchAndRenderReports();
+                } catch (error) { alert(`Error: ${error.message}`); }
+            });
+            DOM.resetBtn.addEventListener('click', async () => {
+                const month = DOM.monthSelect.value;
+                if (!month || !confirm(`Delete all assignments for ${month} for ALL teams?`)) return;
+                try {
+                    await apiCall('/api/reset-schedule', 'POST', { month });
+                    alert('Schedule reset!'); await fetchAndRenderReports();
+                } catch(error) { alert(`Error: ${error.message}`); }
+            });
+        }
+
+        function setupTeamManagementHandlers() {
             DOM.addMemberBtn.addEventListener('click', async () => {
                 const name = DOM.newMemberNameInput.value.trim();
                 if (!name) return;
                 try {
                     await apiCall('/api/team', 'POST', { action: 'add', name, team: DOM.teamSelectManage.value });
-                    DOM.newMemberNameInput.value = '';
-                    await populateDeleteDropdown();
+                    DOM.newMemberNameInput.value = ''; await populateDeleteDropdown();
                 } catch (error) { alert(`Error: ${error.message}`); }
             });
             DOM.deleteMemberBtn.addEventListener('click', async () => {
@@ -153,30 +249,13 @@
                     await populateDeleteDropdown();
                 } catch (error) { alert(`Error: ${error.message}`); }
             });
-            DOM.generateBtn.addEventListener('click', async () => {
-                const month = DOM.monthSelect.value;
-                if (!month || !confirm(`Generate a new schedule for ${month}? This will overwrite existing assignments for all teams.`)) return;
-                try {
-                    await apiCall('/api/generate-schedule', 'POST', { month });
-                    alert(`Schedule for ${month} generated successfully!`);
-                    await fetchAndRenderReports();
-                } catch (error) { alert(`Error: ${error.message}`); }
-            });
-            DOM.resetBtn.addEventListener('click', async () => {
-                const month = DOM.monthSelect.value;
-                const team = DOM.teamSelectManage.value;
-                if (!month || !confirm(`Delete all assignments for ${month} for the ${team} team?`)) return;
-                try {
-                    await apiCall('/api/reset-schedule', 'POST', { month, team });
-                    alert('Schedule reset!');
-                    await fetchAndRenderReports();
-                } catch(error) { alert(`Error: ${error.message}`); }
-            });
+        }
+
+        function setupHolidayHandlers() {
             DOM.holidayCalendarGrid.addEventListener('click', (e) => {
                 const cell = e.target.closest('div[data-date]');
                 if (!cell) return;
-                const date = cell.dataset.date;
-                if (selectedHolidays.has(date)) selectedHolidays.delete(date); else selectedHolidays.add(date);
+                if (selectedHolidays.has(cell.dataset.date)) selectedHolidays.delete(cell.dataset.date); else selectedHolidays.add(cell.dataset.date);
                 cell.classList.toggle('day-selected');
             });
             DOM.saveHolidaysBtn.addEventListener('click', async () => {
@@ -187,13 +266,17 @@
             });
             DOM.holidayPrevBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() - 1); renderHolidayCalendar(); });
             DOM.holidayNextBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() + 1); renderHolidayCalendar(); });
-            
-            const copyHandler = (listElement, button) => async () => {
-                const text = [...listElement.querySelectorAll('div[class="p-1"]')].map(div => div.textContent).join('\n');
+        }
+
+        function setupReportHandlers() {
+            DOM.teamSelectManage.addEventListener('change', () => { populateDeleteDropdown(); fetchAndRenderReports(); });
+            DOM.monthSelect.addEventListener('change', fetchAndRenderReports);
+            const copyHandler = (listEl, btn) => async () => {
+                const text = [...listEl.querySelectorAll('div[class^="p-1"]')].map(div => div.textContent).join('\n');
                 if(!text) return;
                 await navigator.clipboard.writeText(text);
-                button.textContent = 'Copied!';
-                setTimeout(() => button.textContent = 'Copy List', 2000);
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy List', 2000);
             };
             DOM.copyNoPrefsBtn.addEventListener('click', copyHandler(DOM.noPrefsList, DOM.copyNoPrefsBtn));
             DOM.copyDiscrepancyBtn.addEventListener('click', copyHandler(DOM.discrepancyList, DOM.copyDiscrepancyBtn));
@@ -204,12 +287,17 @@
             DOM.monthSelect.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
             const holidayList = await apiCall('/api/holidays');
             selectedHolidays = new Set(holidayList);
-            renderHolidayCalendar();
-            await populateDeleteDropdown();
+            renderHolidayCalendar(); 
+            await populateDeleteDropdown(); 
             await fetchAndRenderReports();
+            
+            // BUG FIX: Restoring the event handler setup calls
+            setupActionHandlers();
+            setupTeamManagementHandlers();
+            setupHolidayHandlers();
+            setupReportHandlers();
         }
 
-        setupEventListeners();
         init();
     });
     </script>
