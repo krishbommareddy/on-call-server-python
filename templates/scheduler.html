@@ -94,11 +94,25 @@
             const opts = { method, headers: { 'Content-Type': 'application/json' } };
             if (body) opts.body = JSON.stringify(body);
             const response = await fetch(url, opts);
-            if (!response.ok) { const err = await response.json(); throw new Error(err.error); }
-            return response.json().catch(() => ({}));
+            const text = await response.text();
+            if (!response.ok) {
+                let errorMsg = response.statusText;
+                try {
+                    const errJson = JSON.parse(text);
+                    errorMsg = errJson.error || errJson.message || errorMsg;
+                } catch (e) {
+                    if (text) errorMsg = text;
+                }
+                throw new Error(errorMsg);
+            }
+            try {
+                return text ? JSON.parse(text) : {};
+            } catch (e) {
+                console.error("Failed to parse JSON response:", text);
+                throw new Error("Received a malformed response from the server.");
+            }
         }
 
-        // BUG FIX: New utility to format date string as MM-DD-YYYY
         const formatDate = (dateStr) => {
             const [year, month, day] = dateStr.split('-');
             return `${month}-${day}-${year}`;
@@ -106,8 +120,10 @@
 
         // --- State Update Functions ---
         function updateStateFromData(data) {
-            assignments = data.assignments || {}; groups = data.groups || [];
-            allEngineers = groups.flat(); holidays = new Set(data.holidays || []);
+            assignments = data.assignments || {};
+            groups = data.groups || [];
+            allEngineers = groups.flat();
+            holidays = new Set(data.holidays || []);
             dayPreferences = data.dayPreferences || {};
         }
 
@@ -118,7 +134,7 @@
             } catch (error) { console.error('Error loading data:', error); }
         }
 
-        // --- Rendering Functions (Refactored) ---
+        // --- Rendering Functions ---
         function populateDropdown() {
             const currentSelection = DOM.teamMemberSelect.value;
             DOM.teamMemberSelect.innerHTML = '<option value="">-- Select Your Name --</option>';
@@ -132,7 +148,6 @@
                 const li = document.createElement('li');
                 li.className = `preference-item p-2 rounded hover:bg-gray-700 flex items-center justify-between ${i % 2 === 0 ? 'bg-gray-800/50' : ''}`;
                 li.draggable = true; li.dataset.date = date;
-                // BUG FIX: Use formatDate utility here
                 li.innerHTML = `<span>${i + 1}. ${formatDate(date)}</span><svg class="w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H8V6H10V4ZM16 4H14V6H16V4ZM10 8H8V10H10V8ZM16 8H14V10H16V8ZM10 12H8V14H10V12ZM16 12H14V14H16V12ZM10 16H8V18H10V16ZM16 16H14V18H16V16Z"></path></svg>`;
                 DOM.preferenceList.appendChild(li);
             });
@@ -158,18 +173,16 @@
             DOM.calendarGrid.innerHTML = '';
             const year = currentDate.getFullYear(), month = currentDate.getMonth();
             DOM.currentMonthYear.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`;
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDay = new Date(year, month, 1).getDay(), daysInMonth = new Date(year, month + 1, 0).getDate();
             for (let i = 0; i < firstDay; i++) DOM.calendarGrid.insertAdjacentHTML('beforeend', '<div></div>');
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day), dateString = `${getMonthString(date)}-${date.getDate().toString().padStart(2, '0')}`;
                 const isOnCallDay = date.getDay() === 0 || date.getDay() === 6 || holidays.has(dateString);
-                const cellHTML = isOnCallDay ? _createOnCallDayCell(day, dateString) : _createRegularDayCell(day);
-                DOM.calendarGrid.insertAdjacentHTML('beforeend', cellHTML);
+                DOM.calendarGrid.insertAdjacentHTML('beforeend', isOnCallDay ? _createOnCallDayCell(day, dateString) : _createRegularDayCell(day));
             }
         }
 
-        // --- Event Handlers & Setup (Refactored) ---
+        // --- Event Handlers & Setup ---
         function updatePreferenceViewForSelectedEngineer() {
             const isEngSelected = !!selectedEngineer;
             DOM.preferenceInfo.classList.toggle('hidden', !isEngSelected);
@@ -193,10 +206,23 @@
         }
 
         function setupCoreHandlers() {
-            DOM.teamSelect.addEventListener('change', async () => { selectedEngineer = null; await initializeApp(); });
-            DOM.teamMemberSelect.addEventListener('change', (e) => { selectedEngineer = e.target.value; updatePreferenceViewForSelectedEngineer(); renderCalendar(); });
-            DOM.prevMonthBtn.addEventListener('click', async () => { currentDate.setMonth(currentDate.getMonth() - 1); await initializeApp(); });
-            DOM.nextMonthBtn.addEventListener('click', async () => { currentDate.setMonth(currentDate.getMonth() + 1); await initializeApp(); });
+            DOM.teamSelect.addEventListener('change', async () => {
+                selectedEngineer = null;
+                await initializeApp();
+            });
+            DOM.teamMemberSelect.addEventListener('change', (e) => {
+                selectedEngineer = e.target.value;
+                updatePreferenceViewForSelectedEngineer();
+                renderCalendar();
+            });
+            DOM.prevMonthBtn.addEventListener('click', async () => {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                await initializeApp();
+            });
+            DOM.nextMonthBtn.addEventListener('click', async () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                await initializeApp();
+            });
         }
 
         function setupCalendarHandlers() {
@@ -265,13 +291,19 @@
             });
         }
         
-        async function init() {
+        async function initializeApp() {
             await loadStateFromServer();
             populateDropdown();
             updatePreferenceViewForSelectedEngineer();
             renderCalendar();
             renderTeamPriorities();
-            // Setup all event listeners
+        }
+        
+        // This function is the main entry point
+        async function init() {
+            await initializeApp(); // Initial load
+            
+            // BUG FIX: Ensure all event handlers are attached after the initial load
             setupCoreHandlers();
             setupCalendarHandlers();
             setupPreferenceHandlers();
