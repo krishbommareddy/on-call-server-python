@@ -243,6 +243,8 @@ def reset_schedule():
     save_data(data)
     return jsonify({"message": "Schedule reset."})
 
+# app.py - (Only the changed function is shown)
+
 @app.route("/api/admin-dashboard", methods=['GET'])
 def admin_dashboard():
     month_str = request.args.get('month', datetime.now().strftime('%Y-%m'))
@@ -285,7 +287,7 @@ def admin_dashboard():
         "allTeamPreferences": all_team_preferences, # MODIFIED: Now contains all teams
         "onCallDays": on_call_days_for_month
     })
-    
+
 @app.route("/admin")
 def admin_page(): return render_template('admin.html')
 @app.route("/")
