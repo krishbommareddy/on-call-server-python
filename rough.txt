@@ -2,3 +2,8 @@ issues is in code
 
 # unable to move to next month in the schudler page
 # when I choossing BSN option in select team option my preferance of On-Call Schedule page its not showing BSN employees.
+
+
+#next improvements
+logo
+and consecuvtive days

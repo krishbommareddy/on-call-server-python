@@ -6,43 +6,19 @@
     <title>Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Basic styles for calendar and preference table */
         .day-selected { background-color: #4f46e5 !important; }
-
-        /* MODIFICATION: Corrected styles for sticky header and column scrolling */
         .preference-table { border-collapse: collapse; width: 100%; min-width: fit-content; }
         .preference-table th, .preference-table td { border: 1px solid #4b5563; padding: 0.5rem; text-align: center; white-space: nowrap; }
-        
-        /* Sticky Header Row */
-        .preference-table thead tr {
-            position: sticky;
-            top: 0;
-            z-index: 30;
-        }
-        .preference-table thead th {
-            background-color: #374151;
-        }
-
-        /* Sticky First Column (Engineer Name) */
-        .preference-table .engineer-name {
-            position: sticky;
-            left: 0;
-            z-index: 20;
-            text-align: left;
-            font-weight: bold;
-            min-width: 180px;
-        }
-        
-        /* Top-left corner cell needs highest z-index */
-        .preference-table thead .engineer-name {
-            z-index: 40;
-        }
-
-        /* Rank Highlighting */
-        .preference-table .rank-1 { background-color: #16a34a; color: white; font-weight: bold; }
-        .preference-table .rank-2 { background-color: #15803d; }
-        .preference-table .rank-3 { background-color: #166534; }
-
-        /* Zebra Striping */
+        .preference-table thead tr { position: sticky; top: 0; z-index: 30; }
+        .preference-table thead th { background-color: #374151; }
+        .preference-table .engineer-name { position: sticky; left: 0; z-index: 20; text-align: left; font-weight: bold; min-width: 180px; }
+        .preference-table thead .engineer-name { z-index: 40; }
+        /* Highlighting for top 3 preferences */
+        .rank-1 { background-color: #16a34a; color: white; font-weight: bold; }
+        .rank-2 { background-color: #15803d; }
+        .rank-3 { background-color: #166534; }
+        /* Zebra striping for preference table rows */
         .preference-table tbody tr:nth-child(odd) { background-color: #2a3340; }
         .preference-table tbody tr:nth-child(even) { background-color: #1f2937; }
         .preference-table .engineer-name.odd-row { background-color: #2a3340; }
@@ -54,252 +30,219 @@
         <header><h1 class="text-4xl font-bold text-indigo-400 text-center">Admin Dashboard</h1></header>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div class="space-y-8">
-                <div class="bg-gray-800 p-6 rounded-lg shadow-lg space-y-6">
-                    <div>
-                        <h2 class="text-2xl font-semibold text-green-400 mb-3">Schedule Actions</h2>
-                        <div class="flex items-center space-x-2">
-                            <input type="month" id="month-select" class="w-full p-2 bg-gray-700 rounded-md">
-                            <button id="generate-schedule-btn" class="w-auto py-2 px-4 bg-purple-600 rounded-md font-semibold">Generate</button>
-                            <button id="reset-btn" class="w-auto py-2 px-4 bg-red-600 rounded-md font-semibold">Reset</button>
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-2xl font-semibold text-green-400">Schedule Actions</h2>
+                        <a href="/api/backup" download class="py-2 px-4 bg-gray-600 text-sm rounded-md font-semibold">Backup Data</a>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="month" id="month-select" class="w-full p-2 bg-gray-700 rounded-md">
+                        <button id="generate-schedule-btn" class="w-auto py-2 px-4 bg-purple-600 rounded-md font-semibold">Generate</button>
+                        <button id="reset-btn" class="w-auto py-2 px-4 bg-red-600 rounded-md font-semibold">Reset</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg space-y-6" id="settings-form">
+                    <div class="flex justify-between items-center">
+                       <h2 class="text-2xl font-semibold text-green-400">Scheduler Settings</h2>
+                       <button id="save-settings-btn" class="py-2 px-4 bg-blue-600 rounded-md font-semibold">Save Settings</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="block text-sm font-medium mb-1">Preference Ranks to Consider</label><input type="number" id="setting-pref-ranks" class="w-full p-2 bg-gray-700 rounded-md"></div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium mb-1">Default Max Shifts (for new engineers)</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="setting-default-shifts" min="0" class="w-full p-2 bg-gray-700 rounded-md">
+                                <button type="button" id="apply-max-shifts-btn" class="py-2 px-4 text-sm bg-indigo-600 rounded-md whitespace-nowrap">Apply to All</button>
+                            </div>
                         </div>
                     </div>
                     <div>
-                        <h2 class="text-2xl font-semibold text-green-400 mb-3">Team Management & Report Filter</h2>
-                        <div class="space-y-3">
-                            <select id="team-select-manage" class="w-full p-2 bg-gray-700 rounded-md"><option value="DC">DC</option><option value="BSN">BSN</option></select>
-                            <div class="flex space-x-2"><input type="text" id="new-member-name" placeholder="New engineer" class="w-full p-2 bg-gray-700 rounded-md"><button id="add-member-btn" class="py-2 px-4 bg-blue-600 rounded-md">Add</button></div>
-                            <div class="flex space-x-2"><select id="delete-member-select" class="w-full p-2 bg-gray-700 rounded-md"><option value="">-- Select to Delete --</option></select><button id="delete-member-btn" class="py-2 px-4 bg-red-800 rounded-md">Delete</button></div>
+                        <h3 class="font-semibold mb-2">Shifts Per Day Per Team</h3>
+                        <div id="shifts-per-day-container" class="space-y-2"></div>
+                        <button id="add-team-shift-btn" class="mt-2 text-sm py-1 px-3 bg-gray-600 hover:bg-gray-500 rounded-md">+ Add Team</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4">
+                    <h2 class="text-2xl font-semibold text-green-400 mb-3">Engineer Management</h2>
+                    <div class="flex space-x-2">
+                        <input type="text" id="new-engineer-name" placeholder="New engineer name" class="w-full p-2 bg-gray-700 rounded-md">
+                        <select id="new-engineer-team" class="p-2 bg-gray-700 rounded-md"></select>
+                        <button id="add-engineer-btn" class="py-2 px-4 bg-blue-600 rounded-md">Add</button>
+                    </div>
+                    <div class="max-h-60 overflow-y-auto border border-gray-700 rounded-md p-2">
+                        <table class="w-full text-sm text-left">
+                            <thead class="sticky top-0 bg-gray-800"><tr><th class="p-2">Name</th><th class="p-2">Team</th><th class="p-2">Action</th></tr></thead>
+                            <tbody id="engineer-list"></tbody>
+                        </table>
+                    </div>
+                    <div class="border-t border-gray-600 pt-4">
+                        <h3 class="text-xl font-semibold text-amber-400 mb-3">Re-balance Groups</h3>
+                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <select id="rebalance-team-select" class="w-full p-2 bg-gray-700 rounded-md"></select>
+                            <input type="number" id="rebalance-group-size" value="5" class="w-full p-2 bg-gray-700 rounded-md" placeholder="Group Size">
+                            <input type="text" id="rebalance-seed" class="w-full p-2 bg-gray-700 rounded-md" placeholder="Shuffle Seed (optional)">
+                        </div>
+                        <button id="rebalance-btn" class="w-full mt-2 py-2 px-4 bg-amber-600 rounded-md">Re-balance</button>
+                    </div>
+                    <div class="border-t border-gray-600 pt-4">
+                        <h3 class="text-xl font-semibold text-red-400 mb-3">Delete Team</h3>
+                        <div class="flex space-x-2">
+                            <select id="delete-team-select" class="w-full p-2 bg-gray-700 rounded-md"></select>
+                            <button id="delete-team-btn" class="py-2 px-4 bg-red-800 rounded-md">Delete</button>
                         </div>
                     </div>
                 </div>
+            </div>
+            
+            <div class="space-y-8">
+                 <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold text-green-400 mb-3">Holiday Management</h2>
+                    <div class="flex items-center justify-between mb-4"><button id="prev-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&larr;</button><h3 id="current-month-year" class="text-xl font-semibold"></h3><button id="next-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&rarr;</button></div>
+                    <div class="grid grid-cols-7 text-center font-bold text-gray-400 mb-2"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
+                    <div id="holiday-notes-container" class="mt-4 space-y-2"></div>
+                    <div class="text-right mt-4"><button id="save-holidays-btn" class="px-6 py-2 bg-green-600 rounded-md font-semibold">Save Holidays</button></div>
+                </div>
                 <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
                     <h2 class="text-2xl font-semibold text-green-400 mb-4">Monthly Summary</h2>
+                     <div class="mb-4">
+                        <label class="text-sm font-medium">Report Team Filter</label>
+                        <select id="team-select-report" class="w-full p-2 bg-gray-700 rounded-md mt-1"></select>
+                    </div>
                     <div id="reports-container" class="space-y-6">
                         <div>
-                            <div class="flex justify-between items-center mb-2"><h3 class="font-semibold">Engineers Without Preferences</h3><button id="copy-no-prefs" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy List</button></div>
+                            <div class="flex justify-between items-center mb-2"><h3 class="font-semibold">Engineers Without Preferences</h3><button id="copy-no-prefs" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy</button></div>
                             <div id="no-prefs-list" class="text-sm bg-gray-900/50 p-3 rounded-md max-h-40 overflow-y-auto"></div>
                         </div>
                         <div>
-                            <div class="flex justify-between items-center mb-2"><h3 class="font-semibold">Shift Discrepancy Report</h3><button id="copy-discrepancy" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy List</button></div>
+                            <div class="flex justify-between items-center mb-2"><h3 class="font-semibold">Shift Discrepancy Report</h3><button id="copy-discrepancy" class="text-xs bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">Copy</button></div>
                             <div id="discrepancy-list" class="text-sm bg-gray-900/50 p-3 rounded-md max-h-40 overflow-y-auto"></div>
                         </div>
                     </div>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-lg shadow-lg col-span-1 lg:col-span-2">
-                    <h2 class="text-2xl font-semibold text-green-400 mb-4">All Team Preferences & Requested Shifts</h2>
-                    <div id="preferences-list-container" class="overflow-auto max-h-[500px] text-sm rounded-md border border-gray-700">
-                        <div id="preferences-list"></div>
-                    </div>
-                </div>
             </div>
-            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold text-green-400 mb-3">Holiday Management</h2>
-                <div class="flex items-center justify-between mb-4"><button id="prev-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&larr;</button><h3 id="current-month-year" class="text-xl font-semibold"></h3><button id="next-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&rarr;</button></div>
-                <div class="grid grid-cols-7 text-center font-bold text-gray-400 mb-2"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
-                <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
-                <div class="text-right mt-4"><button id="save-holidays-btn" class="px-6 py-2 bg-green-600 rounded-md font-semibold">Save Holidays</button></div>
+        </div>
+        
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg col-span-1 lg:col-span-2">
+            <h2 class="text-2xl font-semibold text-green-400 mb-4">All Team Preferences</h2>
+            <div id="preferences-list-container" class="overflow-auto max-h-[500px] text-sm rounded-md border border-gray-700">
+                <div id="preferences-list"></div>
             </div>
         </div>
         <div class="text-center"><a href="/" class="text-indigo-400 hover:underline">Back to Main Scheduler View</a></div>
     </div>
+
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        let holidayCalendarDate = new Date();
-        let selectedHolidays = new Set();
-        const DOM = {
-            monthSelect: document.getElementById('month-select'), generateBtn: document.getElementById('generate-schedule-btn'),
-            resetBtn: document.getElementById('reset-btn'), teamSelectManage: document.getElementById('team-select-manage'),
-            addMemberBtn: document.getElementById('add-member-btn'), newMemberNameInput: document.getElementById('new-member-name'),
-            deleteMemberBtn: document.getElementById('delete-member-btn'), deleteMemberSelect: document.getElementById('delete-member-select'),
-            holidayCalendarGrid: document.getElementById('calendar-grid'), holidayMonthYear: document.getElementById('current-month-year'),
-            holidayPrevBtn: document.getElementById('prev-month-btn'), holidayNextBtn: document.getElementById('next-month-btn'),
-            saveHolidaysBtn: document.getElementById('save-holidays-btn'), noPrefsList: document.getElementById('no-prefs-list'),
-            discrepancyList: document.getElementById('discrepancy-list'), preferencesList: document.getElementById('preferences-list'),
-            copyNoPrefsBtn: document.getElementById('copy-no-prefs'), copyDiscrepancyBtn: document.getElementById('copy-discrepancy'),
-        };
+        /**
+         * This script handles all functionality for the admin dashboard, including
+         * fetching data, rendering reports, and managing teams, engineers, settings, and holidays.
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            let holidayCalendarDate = new Date();
+            // Use a Map to store holidays, mapping date strings ('YYYY-MM-DD') to their notes.
+            let selectedHolidays = new Map();
 
-        async function apiCall(url, method = 'GET', body = null) {
-            const options = { method, headers: { 'Content-Type': 'application/json' } };
-            if (body) options.body = JSON.stringify(body);
-            const response = await fetch(url, options);
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(data.error || 'API request failed');
-            return data;
-        }
-
-        function renderHolidayCalendar() {
-            DOM.holidayCalendarGrid.innerHTML = '';
-            const year = holidayCalendarDate.getFullYear(), month = holidayCalendarDate.getMonth();
-            DOM.holidayMonthYear.textContent = `${holidayCalendarDate.toLocaleString('default', { month: 'long' })} ${year}`;
-            const firstDay = new Date(year, month, 1).getDay(), daysInMonth = new Date(year, month + 1, 0).getDate();
-            for (let i = 0; i < firstDay; i++) DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', '<div></div>');
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-                DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', `<div class="p-2 border border-gray-700 rounded-md text-center cursor-pointer hover:bg-gray-700 ${selectedHolidays.has(dateString) ? 'day-selected' : ''}" data-date="${dateString}">${day}</div>`);
-            }
-        }
-
-        function renderAllTeamPreferenceTables(allTeamPreferences, onCallDays) {
-            DOM.preferencesList.innerHTML = '';
-            const teamNames = Object.keys(allTeamPreferences).sort((a, b) => a === 'DC' ? -1 : b === 'DC' ? 1 : a.localeCompare(b));
-            if (teamNames.length === 0 || onCallDays.length === 0) {
-                DOM.preferencesList.innerHTML = '<p class="p-4 text-gray-400">No preference data available for this month.</p>';
-                return;
-            }
-            teamNames.forEach(teamName => {
-                const preferences = allTeamPreferences[teamName];
-                const header = document.createElement('h3');
-                header.className = 'text-xl font-semibold text-indigo-300 p-4 bg-gray-900 sticky top-0 z-10';
-                header.textContent = `${teamName} Team Preferences`;
-                DOM.preferencesList.appendChild(header);
-                if (!preferences.length) {
-                    const noData = document.createElement('p');
-                    noData.className = 'p-4 text-gray-400';
-                    noData.textContent = `No engineers found or no preferences submitted for the ${teamName} team.`;
-                    DOM.preferencesList.appendChild(noData);
-                    return;
-                }
-                const tableContainer = document.createElement('div');
-                tableContainer.className = 'overflow-x-auto';
-                const table = document.createElement('table');
-                table.className = 'preference-table';
-                const thead = table.createTHead();
-                const headerRow = thead.insertRow();
-                const thName = document.createElement('th');
-                thName.textContent = 'Engineer (Wants)';
-                thName.className = 'engineer-name';
-                headerRow.appendChild(thName);
-                onCallDays.forEach(day => {
-                    const th = document.createElement('th');
-                    th.textContent = day.split('-')[2];
-                    headerRow.appendChild(th);
-                });
-                const tbody = table.createTBody();
-                preferences.forEach((eng, index) => {
-                    const row = tbody.insertRow();
-                    const cellName = row.insertCell();
-                    cellName.className = `engineer-name ${index % 2 === 0 ? 'even-row' : 'odd-row'}`;
-                    cellName.textContent = `${eng.name} (${eng.maxShifts})`;
-                    const prefMap = new Map(eng.preferences.map((date, i) => [date, i + 1]));
-                    onCallDays.forEach(day => {
-                        const cell = row.insertCell();
-                        const rank = prefMap.get(day);
-                        if (rank) {
-                            cell.textContent = rank;
-                            if (rank <= 3) cell.classList.add(`rank-${rank}`);
-                        }
-                    });
-                });
-                tableContainer.appendChild(table);
-                DOM.preferencesList.appendChild(tableContainer);
-            });
-        }
-
-        async function fetchAndRenderReports() {
-            const month = DOM.monthSelect.value, team = DOM.teamSelectManage.value;
-            try {
-                const data = await apiCall(`/api/admin-dashboard?month=${month}&team=${team}`);
-                DOM.noPrefsList.innerHTML = data.noPreferences.length ? data.noPreferences.map(e => `<div class="p-1">${e.name}</div>`).join('') : '<div class="p-1 text-gray-400">All submitted.</div>';
-                DOM.discrepancyList.innerHTML = data.shiftDiscrepancies.length ? data.shiftDiscrepancies.map(d => `<div class="p-1">${d.name} - Req: ${d.requested}, Got: ${d.actual}</div>`).join('') : '<div class="p-1 text-gray-400">No discrepancies.</div>';
-                renderAllTeamPreferenceTables(data.allTeamPreferences, data.onCallDays);
-            } catch (error) { console.error("Failed to render reports:", error); }
-        }
-        
-        async function populateDeleteDropdown() {
-            try {
-                const data = await apiCall(`/api/data?team=${DOM.teamSelectManage.value}`);
-                DOM.deleteMemberSelect.innerHTML = '<option value="">-- Select to Delete --</option>';
-                (data.groups || []).flat().sort((a, b) => a.name.localeCompare(b.name)).forEach(eng => DOM.deleteMemberSelect.add(new Option(eng.name, eng.name)));
-            } catch (error) { console.error("Failed to populate dropdown:", error); }
-        }
-        
-        function setupActionHandlers() {
-            DOM.generateBtn.addEventListener('click', async () => {
-                const month = DOM.monthSelect.value;
-                if (!month || !confirm(`Generate schedule for ${month}? This overwrites existing assignments.`)) return;
-                try {
-                    await apiCall('/api/generate-schedule', 'POST', { month });
-                    alert(`Schedule for ${month} generated!`); await fetchAndRenderReports();
-                } catch (error) { alert(`Error: ${error.message}`); }
-            });
-            DOM.resetBtn.addEventListener('click', async () => {
-                const month = DOM.monthSelect.value;
-                if (!month || !confirm(`Delete all assignments for ${month} for ALL teams?`)) return;
-                try {
-                    await apiCall('/api/reset-schedule', 'POST', { month });
-                    alert('Schedule reset!'); await fetchAndRenderReports();
-                } catch(error) { alert(`Error: ${error.message}`); }
-            });
-        }
-
-        function setupTeamManagementHandlers() {
-            DOM.addMemberBtn.addEventListener('click', async () => {
-                const name = DOM.newMemberNameInput.value.trim();
-                if (!name) return;
-                try {
-                    await apiCall('/api/team', 'POST', { action: 'add', name, team: DOM.teamSelectManage.value });
-                    DOM.newMemberNameInput.value = ''; await populateDeleteDropdown();
-                } catch (error) { alert(`Error: ${error.message}`); }
-            });
-            DOM.deleteMemberBtn.addEventListener('click', async () => {
-                const name = DOM.deleteMemberSelect.value;
-                if (!name || !confirm(`Delete ${name}?`)) return;
-                try {
-                    await apiCall('/api/team', 'POST', { action: 'delete', name, team: DOM.teamSelectManage.value });
-                    await populateDeleteDropdown();
-                } catch (error) { alert(`Error: ${error.message}`); }
-            });
-        }
-
-        function setupHolidayHandlers() {
-            DOM.holidayCalendarGrid.addEventListener('click', (e) => {
-                const cell = e.target.closest('div[data-date]');
-                if (!cell) return;
-                if (selectedHolidays.has(cell.dataset.date)) selectedHolidays.delete(cell.dataset.date); else selectedHolidays.add(cell.dataset.date);
-                cell.classList.toggle('day-selected');
-            });
-            DOM.saveHolidaysBtn.addEventListener('click', async () => {
-                try {
-                    await apiCall('/api/holidays', 'POST', { holidays: Array.from(selectedHolidays) });
-                    alert('Holidays saved!');
-                } catch(error) { alert(`Error: ${error.message}`); }
-            });
-            DOM.holidayPrevBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() - 1); renderHolidayCalendar(); });
-            DOM.holidayNextBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() + 1); renderHolidayCalendar(); });
-        }
-
-        function setupReportHandlers() {
-            DOM.teamSelectManage.addEventListener('change', () => { populateDeleteDropdown(); fetchAndRenderReports(); });
-            DOM.monthSelect.addEventListener('change', fetchAndRenderReports);
-            const copyHandler = (listEl, btn) => async () => {
-                const text = [...listEl.querySelectorAll('div[class^="p-1"]')].map(div => div.textContent).join('\n');
-                if(!text) return;
-                await navigator.clipboard.writeText(text);
-                btn.textContent = 'Copied!';
-                setTimeout(() => btn.textContent = 'Copy List', 2000);
+            // --- DOM ELEMENT CACHE ---
+            const DOM = {
+                monthSelect: document.getElementById('month-select'),
+                generateBtn: document.getElementById('generate-schedule-btn'),
+                resetBtn: document.getElementById('reset-btn'),
+                settingsForm: document.getElementById('settings-form'),
+                saveSettingsBtn: document.getElementById('save-settings-btn'),
+                shiftsPerDayContainer: document.getElementById('shifts-per-day-container'),
+                addTeamShiftBtn: document.getElementById('add-team-shift-btn'),
+                applyMaxShiftsBtn: document.getElementById('apply-max-shifts-btn'),
+                addEngineerBtn: document.getElementById('add-engineer-btn'),
+                newEngineerNameInput: document.getElementById('new-engineer-name'),
+                newEngineerTeamSelect: document.getElementById('new-engineer-team'),
+                engineerList: document.getElementById('engineer-list'),
+                rebalanceTeamSelect: document.getElementById('rebalance-team-select'),
+                rebalanceGroupSize: document.getElementById('rebalance-group-size'),
+                rebalanceSeed: document.getElementById('rebalance-seed'),
+                rebalanceBtn: document.getElementById('rebalance-btn'),
+                deleteTeamSelect: document.getElementById('delete-team-select'),
+                deleteTeamBtn: document.getElementById('delete-team-btn'),
+                holidayCalendarGrid: document.getElementById('calendar-grid'),
+                holidayNotesContainer: document.getElementById('holiday-notes-container'),
+                holidayMonthYear: document.getElementById('current-month-year'),
+                holidayPrevBtn: document.getElementById('prev-month-btn'),
+                holidayNextBtn: document.getElementById('next-month-btn'),
+                saveHolidaysBtn: document.getElementById('save-holidays-btn'),
+                teamSelectReport: document.getElementById('team-select-report'),
+                noPrefsList: document.getElementById('no-prefs-list'),
+                discrepancyList: document.getElementById('discrepancy-list'),
+                preferencesList: document.getElementById('preferences-list'),
+                copyNoPrefsBtn: document.getElementById('copy-no-prefs'),
+                copyDiscrepancyBtn: document.getElementById('copy-discrepancy'),
             };
-            DOM.copyNoPrefsBtn.addEventListener('click', copyHandler(DOM.noPrefsList, DOM.copyNoPrefsBtn));
-            DOM.copyDiscrepancyBtn.addEventListener('click', copyHandler(DOM.discrepancyList, DOM.copyDiscrepancyBtn));
-        }
 
-        async function init() {
-            const now = new Date();
-            DOM.monthSelect.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-            const holidayList = await apiCall('/api/holidays');
-            selectedHolidays = new Set(holidayList);
-            renderHolidayCalendar(); 
-            await populateDeleteDropdown(); 
-            await fetchAndRenderReports();
+            // --- UTILITY FUNCTIONS ---
+            /**
+             * A generic helper function for making API calls to the backend.
+             * @param {string} url - The API endpoint to call.
+             * @param {string} method - The HTTP method (GET, POST, DELETE, etc.).
+             * @param {object} body - The JSON body for POST requests.
+             * @returns {Promise<object>} - The JSON response from the server.
+             */
+            async function apiCall(url, method = 'GET', body = null) { const options = { method, headers: { 'Content-Type': 'application/json' } }; if (body) options.body = JSON.stringify(body); const response = await fetch(url, options); if (response.headers.get("content-type")?.includes("application/json")) { const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'API request failed'); return data; } if (!response.ok) throw new Error('API request failed'); return response; }
             
-            // BUG FIX: Restoring the event handler setup calls
-            setupActionHandlers();
-            setupTeamManagementHandlers();
-            setupHolidayHandlers();
-            setupReportHandlers();
-        }
-
-        init();
-    });
+            // --- DATA HANDLING & RENDERING ---
+            /** Populates all team-related dropdown menus on the page. */
+            function populateTeamDropdowns(teams, selectedTeam = null) { const dropdowns = [DOM.newEngineerTeamSelect, DOM.deleteTeamSelect, DOM.teamSelectReport, DOM.rebalanceTeamSelect]; dropdowns.forEach(dd => { const currentVal = dd.value; dd.innerHTML = ''; if (teams.length === 0) { dd.add(new Option("No teams exist", "")); } else { teams.forEach(team => dd.add(new Option(team, team))); dd.value = teams.includes(currentVal) ? currentVal : (selectedTeam || teams[0]); } }); }
+            /** Renders the list of engineers in the Engineer Management section. */
+            function renderEngineers(engineers) { DOM.engineerList.innerHTML = ''; engineers.forEach(eng => { const row = document.createElement('tr'); row.className = 'border-b border-gray-700/50'; row.innerHTML = `<td class="p-2">${eng.name}</td><td class="p-2">${eng.team}</td><td class="p-2"><button data-name="${eng.name}" class="delete-engineer-btn text-red-400 hover:text-red-300 text-xs">Delete</button></td>`; DOM.engineerList.appendChild(row); }); }
+            /** Renders the current scheduler settings in the settings form. */
+            function renderSettings(settings) { DOM.settingsForm.querySelector('#setting-pref-ranks').value = settings.preference_ranks_to_consider; DOM.settingsForm.querySelector('#setting-default-shifts').value = settings.default_max_shifts; DOM.shiftsPerDayContainer.innerHTML = ''; for (const [team, shifts] of Object.entries(settings.shifts_per_day || {})) { addShiftTeamRow(team, shifts); } }
+            /** Adds a new row to the "Shifts Per Day" table in the settings. */
+            function addShiftTeamRow(team = '', shifts = 1) { const div = document.createElement('div'); div.className = 'flex items-center space-x-2 team-shift-row'; div.innerHTML = `<input type="text" value="${team}" placeholder="Team Name" class="team-name-input w-full p-2 bg-gray-900 rounded-md"><input type="number" value="${shifts}" class="team-shifts-input w-24 p-2 bg-gray-900 rounded-md"><button type="button" class="remove-team-shift-btn text-red-400 hover:text-red-300 text-xl font-bold">&times;</button>`; DOM.shiftsPerDayContainer.appendChild(div); }
+            /** Fetches all necessary data from the backend and triggers rendering for all components. */
+            async function fetchAndRenderAll() { const teams = await apiCall('/api/teams'); populateTeamDropdowns(teams); await Promise.all([ fetchAndRenderReports(), fetchAndRenderEngineers(), fetchAndRenderSettings() ]); }
+            /** Fetches and renders the data for the monthly summary reports. */
+            async function fetchAndRenderReports() { const month = DOM.monthSelect.value, team = DOM.teamSelectReport.value; if (!team) { DOM.noPrefsList.innerHTML = '<div class="p-1 text-gray-400">No team selected.</div>'; DOM.discrepancyList.innerHTML = ''; DOM.preferencesList.innerHTML = ''; return; } try { const data = await apiCall(`/api/admin-dashboard?month=${month}&team=${team}`); DOM.noPrefsList.innerHTML = data.noPreferences.length ? data.noPreferences.map(e => `<div class="p-1">${e.name}</div>`).join('') : '<div class="p-1 text-gray-400">All submitted.</div>'; DOM.discrepancyList.innerHTML = data.shiftDiscrepancies.length ? data.shiftDiscrepancies.map(d => `<div class="p-1">${d.name} - Req: ${d.requested}, Got: ${d.actual}</div>`).join('') : '<div class="p-1 text-gray-400">No discrepancies.</div>'; renderAllTeamPreferenceTables(data.allTeamPreferences, data.onCallDays); } catch (error) { console.error("Failed to render reports:", error); } }
+            /** Fetches and renders the master list of all engineers. */
+            async function fetchAndRenderEngineers() { try { const engineers = await apiCall('/api/engineers'); renderEngineers(engineers); } catch (error) { console.error("Failed to fetch engineers:", error); } }
+            /** Fetches and renders the current application settings. */
+            async function fetchAndRenderSettings() { try { const settings = await apiCall('/api/settings'); renderSettings(settings); } catch (error) { console.error("Failed to fetch settings:", error); } }
+            /** Renders the holiday management calendar and note inputs. */
+            function renderHolidayCalendar() { DOM.holidayCalendarGrid.innerHTML = ''; const year = holidayCalendarDate.getFullYear(), month = holidayCalendarDate.getMonth(); DOM.holidayMonthYear.textContent = `${holidayCalendarDate.toLocaleString('default', { month: 'long' })} ${year}`; const firstDay = new Date(year, month, 1).getDay(), daysInMonth = new Date(year, month + 1, 0).getDate(); for (let i = 0; i < firstDay; i++) { DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', '<div></div>'); } for (let day = 1; day <= daysInMonth; day++) { const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`; const isSelected = selectedHolidays.has(dateString); DOM.holidayCalendarGrid.insertAdjacentHTML('beforeend', `<div class="p-2 border border-gray-700 rounded-md text-center cursor-pointer hover:bg-gray-700 ${isSelected ? 'day-selected' : ''}" data-date="${dateString}">${day}</div>`); } renderHolidayNotes(); }
+            /** Renders the input fields for holiday notes. */
+            function renderHolidayNotes() { DOM.holidayNotesContainer.innerHTML = ''; if (selectedHolidays.size === 0) return; const sortedDates = [...selectedHolidays.keys()].sort(); sortedDates.forEach(date => { const note = selectedHolidays.get(date) || ''; const noteHTML = `<div class="flex items-center space-x-2"><label class="w-24 text-sm">${date.slice(5)}:</label><input type="text" data-date="${date}" value="${note}" placeholder="Holiday Name" class="holiday-note-input w-full p-1 bg-gray-900 rounded-md"></div>`; DOM.holidayNotesContainer.insertAdjacentHTML('beforeend', noteHTML); }); }
+            /** Renders the large table showing all preferences for all teams. */
+            function renderAllTeamPreferenceTables(allTeamPreferences, onCallDays) { DOM.preferencesList.innerHTML = ''; const teamNames = Object.keys(allTeamPreferences).sort(); if (teamNames.length === 0 || onCallDays.length === 0) { DOM.preferencesList.innerHTML = '<p class="p-4 text-gray-400">No preference data available for this month.</p>'; return; } teamNames.forEach(teamName => { const preferences = allTeamPreferences[teamName]; const header = document.createElement('h3'); header.className = 'text-xl font-semibold text-indigo-300 p-4 bg-gray-900 sticky top-0 z-10'; header.textContent = `${teamName} Team Preferences`; DOM.preferencesList.appendChild(header); if (!preferences || !preferences.length) { const noData = document.createElement('p'); noData.className = 'p-4 text-gray-400'; noData.textContent = `No engineers found or no preferences submitted for the ${teamName} team.`; DOM.preferencesList.appendChild(noData); return; } const tableContainer = document.createElement('div'); tableContainer.className = 'overflow-x-auto'; const table = document.createElement('table'); table.className = 'preference-table'; const thead = table.createTHead(); const headerRow = thead.insertRow(); const thName = document.createElement('th'); thName.textContent = 'Engineer (Wants)'; thName.className = 'engineer-name'; headerRow.appendChild(thName); onCallDays.forEach(day => { const th = document.createElement('th'); th.textContent = day.split('-')[2]; headerRow.appendChild(th); }); const tbody = table.createTBody(); preferences.forEach((eng, index) => { const row = tbody.insertRow(); const cellName = row.insertCell(); cellName.className = `engineer-name ${index % 2 === 0 ? 'even-row' : 'odd-row'}`; cellName.textContent = `${eng.name} (${eng.maxShifts})`; const prefMap = new Map((eng.preferences || []).map((date, i) => [date, i + 1])); onCallDays.forEach(day => { const cell = row.insertCell(); const rank = prefMap.get(day); if (rank) { cell.textContent = rank; if (rank <= 3) cell.classList.add(`rank-${rank}`); } }); }); tableContainer.appendChild(table); DOM.preferencesList.appendChild(tableContainer); }); }
+            
+            // --- EVENT HANDLER SETUP ---
+            /** Sets up event listeners for the "Scheduler Settings" panel. */
+            function setupSettingsHandlers() { DOM.saveSettingsBtn.addEventListener('click', async () => { const shifts_per_day = {}; document.querySelectorAll('.team-shift-row').forEach(row => { const teamName = row.querySelector('.team-name-input').value.trim(); const shifts = parseInt(row.querySelector('.team-shifts-input').value, 10); if (teamName) shifts_per_day[teamName] = shifts; }); const settings = { preference_ranks_to_consider: parseInt(DOM.settingsForm.querySelector('#setting-pref-ranks').value, 10), default_max_shifts: parseInt(DOM.settingsForm.querySelector('#setting-default-shifts').value, 10), shifts_per_day: shifts_per_day }; try { await apiCall('/api/settings', 'POST', settings); alert('Settings saved!'); await fetchAndRenderAll(); } catch (error) { alert(`Error: ${error.message}`); } }); DOM.applyMaxShiftsBtn.addEventListener('click', async () => { const defaultValue = DOM.settingsForm.querySelector('#setting-default-shifts').value; if (!defaultValue || !confirm(`This will update ALL existing engineers to request ${defaultValue} shifts per month. Are you sure?`)) { return; } try { const response = await apiCall('/api/bulk-actions', 'POST', { action: 'apply_default_max_shifts', value: defaultValue }); alert(response.message); } catch (error) { alert(`Error: ${error.message}`); } }); DOM.addTeamShiftBtn.addEventListener('click', () => addShiftTeamRow()); DOM.shiftsPerDayContainer.addEventListener('click', e => { if (e.target.classList.contains('remove-team-shift-btn')) { e.target.closest('.team-shift-row').remove(); } }); }
+            /** Sets up event listeners for all engineer and team management actions. */
+            function setupEngineerHandlers() { DOM.addEngineerBtn.addEventListener('click', async () => { const name = DOM.newEngineerNameInput.value.trim(); const team = DOM.newEngineerTeamSelect.value; if (!name || !team) return alert("Please provide a name and select a team."); try { await apiCall('/api/engineers', 'POST', { name, team }); DOM.newEngineerNameInput.value = ''; await fetchAndRenderAll(); } catch (error) { alert(`Error: ${error.message}`); } }); DOM.engineerList.addEventListener('click', async (e) => { if (e.target.classList.contains('delete-engineer-btn')) { const name = e.target.dataset.name; if (!confirm(`Are you sure you want to delete ${name}?`)) return; try { await apiCall(`/api/engineers/${name}`, 'DELETE'); await fetchAndRenderAll(); } catch (error) { alert(`Error: ${error.message}`); } } }); DOM.deleteTeamBtn.addEventListener('click', async () => { const teamName = DOM.deleteTeamSelect.value; if (!teamName || !confirm(`Are you sure you want to delete the ENTIRE team "${teamName}" and all of its engineers? This action cannot be undone.`)) return; try { const response = await apiCall(`/api/teams/${teamName}`, 'DELETE'); alert(response.message); await fetchAndRenderAll(); } catch (error) { alert(`Error: ${error.message}`); } }); DOM.rebalanceBtn.addEventListener('click', async() => { const teamName = DOM.rebalanceTeamSelect.value; if (!teamName) return alert('Please select a team to re-balance.'); try { const response = await apiCall('/api/rebalance-teams', 'POST', { team: teamName, groupSize: DOM.rebalanceGroupSize.value, seed: DOM.rebalanceSeed.value }); alert(response.message); } catch(error) { alert(`Error: ${error.message}`); } }); }
+            /** Sets up event listeners for the "Schedule Actions" panel (Generate, Reset). */
+            function setupActionHandlers() { DOM.generateBtn.addEventListener('click', async () => { const month = DOM.monthSelect.value; if (!month || !confirm(`Generate schedule for ${month}? This overwrites existing assignments.`)) return; try { await apiCall('/api/generate-schedule', 'POST', { month }); alert(`Schedule for ${month} generated!`); await fetchAndRenderAll(); } catch (error) { alert(`Error: ${error.message}`); } }); DOM.resetBtn.addEventListener('click', async () => { const month = DOM.monthSelect.value; if (!month || !confirm(`Delete all assignments for ${month} for ALL teams?`)) return; try { await apiCall('/api/reset-schedule', 'POST', { month }); alert('Schedule reset!'); await fetchAndRenderAll(); } catch(error) { alert(`Error: ${error.message}`); } }); }
+            /** Sets up event listeners for the "Holiday Management" panel. */
+            function setupHolidayHandlers() { DOM.holidayCalendarGrid.addEventListener('click', (e) => { const cell = e.target.closest('div[data-date]'); if (!cell) return; if (selectedHolidays.has(cell.dataset.date)) { selectedHolidays.delete(cell.dataset.date); } else { selectedHolidays.set(cell.dataset.date, ''); } renderHolidayCalendar(); }); DOM.holidayNotesContainer.addEventListener('input', (e) => { if (e.target.classList.contains('holiday-note-input')) { selectedHolidays.set(e.target.dataset.date, e.target.value); } }); DOM.saveHolidaysBtn.addEventListener('click', async () => { const holidaysToSave = Array.from(selectedHolidays, ([date, note]) => ({date, note})); try { await apiCall('/api/holidays', 'POST', { holidays: holidaysToSave }); alert('Holidays saved!'); } catch(error) { alert(`Error: ${error.message}`); } }); DOM.holidayPrevBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() - 1); renderHolidayCalendar(); }); DOM.holidayNextBtn.addEventListener('click', () => { holidayCalendarDate.setMonth(holidayCalendarDate.getMonth() + 1); renderHolidayCalendar(); }); }
+            /** Sets up event listeners for the "Monthly Summary" reports panel. */
+            function setupReportHandlers() { DOM.teamSelectReport.addEventListener('change', fetchAndRenderReports); DOM.monthSelect.addEventListener('change', fetchAndRenderReports); const copyHandler = (listEl, btn) => async () => { const text = [...listEl.querySelectorAll('div[class^="p-1"]')].map(div => div.textContent).join('\n'); if(!text) return; await navigator.clipboard.writeText(text); btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 2000); }; DOM.copyNoPrefsBtn.addEventListener('click', copyHandler(DOM.noPrefsList, DOM.copyNoPrefsBtn)); DOM.copyDiscrepancyBtn.addEventListener('click', copyHandler(DOM.discrepancyList, DOM.copyDiscrepancyBtn)); }
+            
+            /** The main function to initialize the dashboard on page load. */
+            async function init() {
+                const now = new Date();
+                DOM.monthSelect.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+                try {
+                    const holidayList = await apiCall('/api/holidays');
+                    selectedHolidays = new Map(holidayList.map(h => [h.date, h.note]));
+                } catch (e) { console.error("Could not load holidays", e); }
+                renderHolidayCalendar();
+                await fetchAndRenderAll();
+                setupActionHandlers();
+                setupHolidayHandlers();
+                setupReportHandlers();
+                setupSettingsHandlers();
+                setupEngineerHandlers();
+            }
+            init();
+        });
     </script>
 </body>
 </html>

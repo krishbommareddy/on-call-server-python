@@ -16,10 +16,20 @@
         .assigned-name { cursor: pointer; }
         .assigned-name:hover { text-decoration: underline; color: #818cf8; }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 50; }
+        .holiday-note {
+            font-size: 0.7rem;
+            font-style: italic;
+            color: #67e8f9; /* Cyan color for visibility */
+            position: absolute;
+            bottom: 4px;
+            left: 6px;
+            text-align: left;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white p-4 sm:p-6 md:p-8">
     <div id="day-tooltip"></div>
+
     <div id="manage-shift-modal" class="modal-overlay hidden">
         <div class="bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-md space-y-4">
             <h3 id="modal-title" class="text-2xl font-bold text-green-400">Manage Shift</h3>
@@ -37,281 +47,115 @@
             <div class="text-right border-t border-gray-700 pt-4 mt-4"><button id="modal-close-btn" class="py-2 px-4 bg-gray-600 rounded-md">Close</button></div>
         </div>
     </div>
+
     <div class="max-w-screen-2xl mx-auto">
         <header class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-indigo-400">On-Call Schedule</h1></header>
         <main class="flex flex-col xl:flex-row gap-8">
             <div class="w-full xl:flex-1 bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg">
-                <div class="flex items-center justify-between mb-6"><button id="prev-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&larr; Prev</button><h2 id="current-month-year" class="text-xl sm:text-2xl font-semibold text-center mx-2"></h2><button id="next-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">Next &rarr;</button></div>
-                <div class="grid calendar-grid gap-1 text-center font-bold text-gray-400 mb-2"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+                <div class="flex items-center justify-between mb-6">
+                    <button id="prev-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">&larr; Prev</button>
+                    <h2 id="current-month-year" class="text-xl sm:text-2xl font-semibold text-center mx-2"></h2>
+                    <button id="next-month-btn" class="px-4 py-2 bg-indigo-600 rounded-md">Next &rarr;</button>
+                </div>
+                <div class="grid calendar-grid gap-1 text-center font-bold text-gray-400 mb-2">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
                 <div id="calendar-grid" class="grid calendar-grid gap-1 md:gap-2"></div>
             </div>
+
             <div class="w-full xl:w-96 bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col space-y-4">
                 <div>
-                     <h3 class="text-xl font-semibold border-b border-gray-700 pb-3 mb-4">My Preferences</h3>
-                     <label for="team-select" class="block mb-2 font-medium">1. Select Team</label>
-                     <select id="team-select" class="w-full p-2 bg-gray-700 rounded-md"><option value="DC">DC</option><option value="BSN">BSN</option></select>
-                     <label for="team-member-select" class="block mt-4 mb-2 font-medium">2. Select Name</label>
-                     <select id="team-member-select" class="w-full p-2 bg-gray-700 rounded-md"></select>
-                    <div id="preference-info" class="hidden mt-4 p-4 bg-gray-900 rounded-md space-y-3">
-                        <div><label for="max-shifts-select" class="block mb-1 text-sm font-medium text-gray-400">3. Desired number of shifts:</label><select id="max-shifts-select" class="w-full p-2 bg-gray-700 rounded-md"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></div>
+                    <h3 class="text-xl font-semibold border-b border-gray-700 pb-3 mb-4">My Preferences</h3>
+                    <label for="team-select" class="block mb-2 font-medium">1. Select Team</label>
+                    <select id="team-select" class="w-full p-2 bg-gray-700 rounded-md"></select>
+                    <label for="team-member-select" class="block mt-4 mb-2 font-medium">2. Select Name</label>
+                    <select id="team-member-select" class="w-full p-2 bg-gray-700 rounded-md"></select>
+                   <div id="preference-info" class="hidden mt-4 p-4 bg-gray-900 rounded-md space-y-3">
+                        <div>
+                            <label for="max-shifts-select" class="block mb-1 text-sm font-medium text-gray-400">3. Desired number of shifts:</label>
+                            <select id="max-shifts-select" class="w-full p-2 bg-gray-700 rounded-md">
+                                <option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                            </select>
+                        </div>
                         <div><p class="text-sm text-gray-400">4. Drag and drop to reorder preferred days:</p></div>
                     </div>
                     <div id="preference-list-container" class="hidden flex-grow space-y-2 mt-4">
                         <ol id="preference-list" class="list-decimal list-inside p-2 bg-gray-900 rounded-md min-h-[8rem] overflow-y-auto"></ol>
-                        <button id="save-prefs-btn" class="w-full py-2 px-4 bg-green-600 rounded-md font-semibold">Save My Preferences</button>
+                        <div class="flex space-x-2 mt-2">
+                            <button id="analyze-prefs-btn" class="w-full py-2 px-4 bg-blue-600 rounded-md font-semibold">Analyze My Chances</button>
+                            <button id="save-prefs-btn" class="w-full py-2 px-4 bg-green-600 rounded-md font-semibold">Save My Preferences</button>
+                        </div>
                     </div>
                 </div>
-                <div class="border-t border-gray-700 pt-4"><h3 class="text-xl font-semibold pb-3">Team Priorities This Month</h3><div id="team-priorities-list" class="space-y-4 max-h-96 overflow-y-auto pr-2"></div></div>
+                <div class="border-t border-gray-700 pt-4">
+                    <h3 class="text-xl font-semibold pb-3">Team Priorities This Month</h3>
+                    <div id="team-priorities-list" class="space-y-4 max-h-96 overflow-y-auto pr-2"></div>
+                </div>
                 <div class="mt-auto text-center !mt-8"><a href="/admin" class="text-indigo-400 hover:underline">Go to Admin Dashboard</a></div>
             </div>
         </main>
     </div>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- State Management ---
-        let currentDate = new Date();
-        let assignments = {}, groups = [], holidays = new Set(), dayPreferences = {};
-        let allEngineers = [], selectedEngineer = null, currentPreferences = [];
-        
-        // --- DOM Element Cache ---
-        const DOM = {
-            calendarGrid: document.getElementById('calendar-grid'), currentMonthYear: document.getElementById('current-month-year'),
-            prevMonthBtn: document.getElementById('prev-month-btn'), nextMonthBtn: document.getElementById('next-month-btn'),
-            teamSelect: document.getElementById('team-select'), teamMemberSelect: document.getElementById('team-member-select'),
-            preferenceInfo: document.getElementById('preference-info'), preferenceListContainer: document.getElementById('preference-list-container'),
-            preferenceList: document.getElementById('preference-list'), savePrefsBtn: document.getElementById('save-prefs-btn'),
-            teamPrioritiesList: document.getElementById('team-priorities-list'), maxShiftsSelect: document.getElementById('max-shifts-select'),
-            dayTooltip: document.getElementById('day-tooltip'), manageShiftModal: document.getElementById('manage-shift-modal'),
-            modalTitle: document.getElementById('modal-title'), modalSwapBtn: document.getElementById('modal-swap-btn'),
-            modalRelinquishBtn: document.getElementById('modal-relinquish-btn'),
-            modalCloseBtn: document.getElementById('modal-close-btn'), swapEngineerSelect: document.getElementById('swap-engineer-select'),
-        };
-
-        // --- Utility Functions ---
-        const getMonthString = (d) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-        
-        async function apiCall(url, method = 'GET', body = null) {
-            const opts = { method, headers: { 'Content-Type': 'application/json' } };
-            if (body) opts.body = JSON.stringify(body);
-            const response = await fetch(url, opts);
-            const text = await response.text();
-            if (!response.ok) {
-                let errorMsg = response.statusText;
-                try {
-                    const errJson = JSON.parse(text);
-                    errorMsg = errJson.error || errJson.message || errorMsg;
-                } catch (e) {
-                    if (text) errorMsg = text;
-                }
-                throw new Error(errorMsg);
-            }
-            try {
-                return text ? JSON.parse(text) : {};
-            } catch (e) {
-                console.error("Failed to parse JSON response:", text);
-                throw new Error("Received a malformed response from the server.");
-            }
-        }
-
-        const formatDate = (dateStr) => {
-            const [year, month, day] = dateStr.split('-');
-            return `${month}-${day}-${year}`;
-        };
-
-        // --- State Update Functions ---
-        function updateStateFromData(data) {
-            assignments = data.assignments || {};
-            groups = data.groups || [];
-            allEngineers = groups.flat();
-            holidays = new Set(data.holidays || []);
-            dayPreferences = data.dayPreferences || {};
-        }
-
-        async function loadStateFromServer() {
-            try {
-                const data = await apiCall(`/api/data?month=${getMonthString(currentDate)}&team=${DOM.teamSelect.value}`);
-                updateStateFromData(data);
-            } catch (error) { console.error('Error loading data:', error); }
-        }
-
-        // --- Rendering Functions ---
-        function populateDropdown() {
-            const currentSelection = DOM.teamMemberSelect.value;
-            DOM.teamMemberSelect.innerHTML = '<option value="">-- Select Your Name --</option>';
-            allEngineers.sort((a, b) => a.name.localeCompare(b.name)).forEach(eng => DOM.teamMemberSelect.add(new Option(eng.name, eng.name)));
-            DOM.teamMemberSelect.value = currentSelection || '';
-        }
-
-        function renderPreferences() {
-            DOM.preferenceList.innerHTML = '';
-            currentPreferences.forEach((date, i) => {
-                const li = document.createElement('li');
-                li.className = `preference-item p-2 rounded hover:bg-gray-700 flex items-center justify-between ${i % 2 === 0 ? 'bg-gray-800/50' : ''}`;
-                li.draggable = true; li.dataset.date = date;
-                li.innerHTML = `<span>${i + 1}. ${formatDate(date)}</span><svg class="w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H8V6H10V4ZM16 4H14V6H16V4ZM10 8H8V10H10V8ZM16 8H14V10H16V8ZM10 12H8V14H10V12ZM16 12H14V14H16V12ZM10 16H8V18H10V16ZM16 16H14V18H16V16Z"></path></svg>`;
-                DOM.preferenceList.appendChild(li);
-            });
-        }
-        
-        function renderTeamPriorities() {
-            DOM.teamPrioritiesList.innerHTML = '';
-            groups.forEach((group, i) => DOM.teamPrioritiesList.insertAdjacentHTML('beforeend', `<div class="bg-gray-900 p-3 rounded-md"><h4 class="font-semibold text-green-400 mb-2">Group ${i + 1} ${i === 0 ? '(Highest)' : ''}</h4><ol class="list-decimal list-inside text-sm space-y-1">${group.map(eng => `<li>${eng.name}</li>`).join('')}</ol></div>`));
-        }
-
-        const _createOnCallDayCell = (day, dateString) => {
-            const assigned = assignments[dateString] || [];
-            const namesHTML = assigned.map((name, i) => `<div class="text-xs truncate assigned-name" data-name="${name}" data-date="${dateString}" data-team="${name.includes('DC') ? 'DC' : 'BSN'}">${i + 1}. ${name}</div>`).join('');
-            const isHighlighted = selectedEngineer && assigned.includes(selectedEngineer);
-            const prefIndex = currentPreferences.indexOf(dateString);
-            const prefRankHTML = prefIndex > -1 ? `<div class="preference-rank">${prefIndex + 1}</div>` : '';
-            return `<div class="calendar-day p-2 border border-gray-700/50 rounded-md flex flex-col ${day % 2 === 0 ? 'bg-blue-950' : 'bg-blue-900/50'} weekend-day ${selectedEngineer ? 'preference-possible cursor-pointer' : ''} ${isHighlighted ? 'ring-2 ring-blue-500' : ''}" data-date="${dateString}">${prefRankHTML}<div class="font-bold text-lg text-indigo-200">${day}</div><div class="mt-1 space-y-1 overflow-hidden flex-grow">${namesHTML}</div></div>`;
-        };
-
-        const _createRegularDayCell = (day) => `<div class="p-2 ${day % 2 === 0 ? 'bg-gray-800' : 'bg-gray-800/50'} rounded-md"><div class="font-bold text-gray-300">${day}</div></div>`;
-
-        function renderCalendar() {
-            DOM.calendarGrid.innerHTML = '';
-            const year = currentDate.getFullYear(), month = currentDate.getMonth();
-            DOM.currentMonthYear.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`;
-            const firstDay = new Date(year, month, 1).getDay(), daysInMonth = new Date(year, month + 1, 0).getDate();
-            for (let i = 0; i < firstDay; i++) DOM.calendarGrid.insertAdjacentHTML('beforeend', '<div></div>');
-            for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day), dateString = `${getMonthString(date)}-${date.getDate().toString().padStart(2, '0')}`;
-                const isOnCallDay = date.getDay() === 0 || date.getDay() === 6 || holidays.has(dateString);
-                DOM.calendarGrid.insertAdjacentHTML('beforeend', isOnCallDay ? _createOnCallDayCell(day, dateString) : _createRegularDayCell(day));
-            }
-        }
-
-        // --- Event Handlers & Setup ---
-        function updatePreferenceViewForSelectedEngineer() {
-            const isEngSelected = !!selectedEngineer;
-            DOM.preferenceInfo.classList.toggle('hidden', !isEngSelected);
-            DOM.preferenceListContainer.classList.toggle('hidden', !isEngSelected);
-            if (isEngSelected) {
-                const engData = allEngineers.find(eng => eng.name === selectedEngineer);
-                currentPreferences = (engData?.preferences?.[getMonthString(currentDate)] || []).slice();
-                DOM.maxShiftsSelect.value = engData?.maxShifts || 2;
-            } else { currentPreferences = []; }
-            renderPreferences();
-        }
-        
-        function openManageShiftDialog(name, date, team) {
-            DOM.modalTitle.textContent = `Manage Shift for ${name} on ${date}`;
-            const teammates = allEngineers.filter(e => e.name.includes(team) && e.name !== name);
-            DOM.swapEngineerSelect.innerHTML = '';
-            teammates.forEach(tm => DOM.swapEngineerSelect.add(new Option(tm.name, tm.name)));
-            DOM.modalSwapBtn.dataset.date = date; DOM.modalSwapBtn.dataset.name = name; DOM.modalSwapBtn.dataset.team = team;
-            DOM.modalRelinquishBtn.dataset.date = date; DOM.modalRelinquishBtn.dataset.name = name;
-            DOM.manageShiftModal.classList.remove('hidden');
-        }
-
-        function setupCoreHandlers() {
-            DOM.teamSelect.addEventListener('change', async () => {
-                selectedEngineer = null;
-                await initializeApp();
-            });
-            DOM.teamMemberSelect.addEventListener('change', (e) => {
-                selectedEngineer = e.target.value;
-                updatePreferenceViewForSelectedEngineer();
-                renderCalendar();
-            });
-            DOM.prevMonthBtn.addEventListener('click', async () => {
-                currentDate.setMonth(currentDate.getMonth() - 1);
-                await initializeApp();
-            });
-            DOM.nextMonthBtn.addEventListener('click', async () => {
-                currentDate.setMonth(currentDate.getMonth() + 1);
-                await initializeApp();
-            });
-        }
-
-        function setupCalendarHandlers() {
-            DOM.calendarGrid.addEventListener('click', (e) => {
-                const assignedNameEl = e.target.closest('.assigned-name');
-                if (assignedNameEl) return openManageShiftDialog(assignedNameEl.dataset.name, assignedNameEl.dataset.date, assignedNameEl.dataset.team);
-                if (!selectedEngineer) return; const cell = e.target.closest('.weekend-day'); if (!cell) return;
-                const prefIndex = currentPreferences.indexOf(cell.dataset.date);
-                if (prefIndex > -1) currentPreferences.splice(prefIndex, 1); else currentPreferences.push(cell.dataset.date);
-                renderPreferences(); renderCalendar();
-            });
-            DOM.calendarGrid.addEventListener('mouseover', e => {
-                const cell = e.target.closest('.weekend-day'); if (!cell) return;
-                const requesters = dayPreferences[cell.dataset.date] || [];
-                const dcReq = requesters.filter(r => r.team === 'DC').length, bsnReq = requesters.filter(r => r.team === 'BSN').length;
-                const dcChance = dcReq > 0 ? Math.min(100, (5 / dcReq) * 100) : 100, bsnChance = bsnReq > 0 ? Math.min(100, (1 / bsnReq) * 100) : 100;
-                let html = `<div class="font-bold mb-2">Who requested ${cell.dataset.date}?</div>`;
-                if (requesters.length > 0) { html += `<div class="text-xs space-y-1">${requesters.map(r => `<span>${r.name} (${r.team})</span>`).join('<br>')}</div><div class="text-xs mt-2 pt-2 border-t border-gray-600"><strong>Chance:</strong> DC ${dcChance.toFixed(0)}%, BSN ${bsnChance.toFixed(0)}%</div>`;
-                } else { html += '<div class="text-xs text-gray-400">No requests for this day.</div>'; }
-                DOM.dayTooltip.innerHTML = html; DOM.dayTooltip.style.display = 'block';
-            });
-            DOM.calendarGrid.addEventListener('mousemove', e => { DOM.dayTooltip.style.left = `${e.pageX + 15}px`; DOM.dayTooltip.style.top = `${e.pageY + 15}px`; });
-            DOM.calendarGrid.addEventListener('mouseout', e => { if (e.target.closest('.weekend-day')) DOM.dayTooltip.style.display = 'none'; });
-        }
-
-        function setupPreferenceHandlers() {
-            DOM.savePrefsBtn.addEventListener('click', async () => {
-                if (!selectedEngineer) return;
-                try {
-                    await apiCall('/api/preferences', 'POST', { engineer: selectedEngineer, month: getMonthString(currentDate), preferences: currentPreferences, maxShifts: parseInt(DOM.maxShiftsSelect.value, 10), team: DOM.teamSelect.value });
-                    alert('Preferences saved!');
-                } catch(error) { alert(`Error: ${error.message}`); }
-            });
-            let draggedItem = null;
-            DOM.preferenceList.addEventListener('dragstart', (e) => { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); });
-            DOM.preferenceList.addEventListener('dragend', (e) => e.target.classList.remove('dragging'));
-            DOM.preferenceList.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                const afterElement = [...e.currentTarget.querySelectorAll('li:not(.dragging)')].reduce((closest, child) => {
-                    const box = child.getBoundingClientRect(), offset = e.clientY - box.top - box.height / 2;
-                    return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
-                }, { offset: Number.NEGATIVE_INFINITY }).element;
-                if (afterElement) e.currentTarget.insertBefore(draggedItem, afterElement); else e.currentTarget.appendChild(draggedItem);
-            });
-            DOM.preferenceList.addEventListener('drop', () => { currentPreferences = [...DOM.preferenceList.querySelectorAll('li')].map(li => li.dataset.date); renderPreferences(); renderCalendar(); });
-        }
-
-        function setupModalHandlers() {
-            DOM.modalCloseBtn.addEventListener('click', () => DOM.manageShiftModal.classList.add('hidden'));
-            DOM.modalSwapBtn.addEventListener('click', async (e) => {
-                const { name, date, team } = e.target.dataset, targetEngineer = DOM.swapEngineerSelect.value;
-                if (!targetEngineer) return alert('Please select an engineer to swap with.');
-                if (!confirm(`Swap ${name} with ${targetEngineer}?`)) return;
-                try {
-                    await apiCall('/api/manage-shift', 'POST', { originalEngineer: name, targetEngineer, date, team });
-                    alert('Shift swapped!'); await loadStateFromServer(); renderCalendar(); DOM.manageShiftModal.classList.add('hidden');
-                } catch (error) { alert(`Error: ${error.message}`); }
-            });
-            DOM.modalRelinquishBtn.addEventListener('click', (e) => {
-                const { name, date } = e.target.dataset;
-                const dateObj = new Date(date + 'T00:00:00'), formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-                const to = 'group@test.com', cc = 'elias@test.com', subject = `Shift Giveaway or Swap – Date: ${date}`;
-                const body = `Hi Team,\n\nI (${name}) would like to give away or swap my shift for the upcoming ${formattedDate}.\n\nPlease let me know if anyone would be interested in taking this shift.\n\nThanks,`;
-                const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&cc=${encodeURIComponent(cc)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                window.open(gmailUrl, '_blank'); DOM.manageShiftModal.classList.add('hidden');
-            });
-        }
-        
-        async function initializeApp() {
-            await loadStateFromServer();
-            populateDropdown();
-            updatePreferenceViewForSelectedEngineer();
-            renderCalendar();
-            renderTeamPriorities();
-        }
-        
-        // This function is the main entry point
-        async function init() {
-            await initializeApp(); // Initial load
+        /**
+         * This script handles all functionality for the main scheduler page, including
+         * fetching data, rendering the calendar and preferences, and handling user interactions.
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            let currentDate = new Date();
+            let assignments = {}, groups = [], dayPreferences = {};
+            let holidaysMap = new Map();
+            let teamEngineers = [], allEngineers = [], selectedEngineer = null, currentPreferences = [];
             
-            // BUG FIX: Ensure all event handlers are attached after the initial load
-            setupCoreHandlers();
-            setupCalendarHandlers();
-            setupPreferenceHandlers();
-            setupModalHandlers();
-        }
-        
-        init();
-    });
+            // --- DOM ELEMENT CACHE ---
+            const DOM = {
+                calendarGrid: document.getElementById('calendar-grid'), currentMonthYear: document.getElementById('current-month-year'),
+                prevMonthBtn: document.getElementById('prev-month-btn'), nextMonthBtn: document.getElementById('next-month-btn'),
+                teamSelect: document.getElementById('team-select'), teamMemberSelect: document.getElementById('team-member-select'),
+                preferenceInfo: document.getElementById('preference-info'), preferenceListContainer: document.getElementById('preference-list-container'),
+                preferenceList: document.getElementById('preference-list'), savePrefsBtn: document.getElementById('save-prefs-btn'),
+                maxShiftsSelect: document.getElementById('max-shifts-select'),
+                analyzePrefsBtn: document.getElementById('analyze-prefs-btn'),
+                teamPrioritiesList: document.getElementById('team-priorities-list'),
+                dayTooltip: document.getElementById('day-tooltip'), manageShiftModal: document.getElementById('manage-shift-modal'),
+                modalTitle: document.getElementById('modal-title'), modalSwapBtn: document.getElementById('modal-swap-btn'),
+                modalRelinquishBtn: document.getElementById('modal-relinquish-btn'),
+                modalCloseBtn: document.getElementById('modal-close-btn'), swapEngineerSelect: document.getElementById('swap-engineer-select'),
+            };
+
+            // --- UTILITY FUNCTIONS ---
+            const getMonthString = (d) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+            async function apiCall(url, method = 'GET', body = null) { const opts = { method, headers: { 'Content-Type': 'application/json' } }; if (body) opts.body = JSON.stringify(body); const response = await fetch(url, opts); const text = await response.text(); if (!response.ok) { let errorMsg = response.statusText; try { const errJson = JSON.parse(text); errorMsg = errJson.error || errJson.message || errorMsg; } catch (e) { if (text) errorMsg = text; } throw new Error(errorMsg); } try { return text ? JSON.parse(text) : {}; } catch (e) { console.error("Failed to parse JSON response:", text); throw new Error("Received a malformed response from the server."); } }
+            const formatDate = (dateStr) => { const [year, month, day] = dateStr.split('-'); return `${month}-${day}-${year}`; };
+
+            // --- DATA HANDLING AND RENDERING ---
+            function updateStateFromData(data) { assignments = data.assignments || {}; groups = data.groups || []; teamEngineers = data.teamEngineers || []; allEngineers = data.allEngineers || []; holidaysMap = new Map((data.holidays || []).map(h => [h.date, h.note])); dayPreferences = data.dayPreferences || {}; if (data.selectedTeam) DOM.teamSelect.value = data.selectedTeam; }
+            async function loadStateFromServer(team) { try { const data = await apiCall(`/api/data?month=${getMonthString(currentDate)}&team=${team}`); updateStateFromData(data); } catch (error) { console.error('Error loading data:', error); alert(error.message); } }
+            function populateTeamDropdown(teams) { const currentVal = DOM.teamSelect.value; DOM.teamSelect.innerHTML = ''; if (teams.length === 0) { DOM.teamSelect.add(new Option("No teams configured", "")); return; } teams.forEach(teamName => DOM.teamSelect.add(new Option(teamName, teamName))); DOM.teamSelect.value = teams.includes(currentVal) ? currentVal : teams[0]; }
+            function populateEngineerDropdown() { const currentSelection = DOM.teamMemberSelect.value; DOM.teamMemberSelect.innerHTML = '<option value="">-- Select Your Name --</option>'; teamEngineers.forEach(eng => DOM.teamMemberSelect.add(new Option(eng.name, eng.name))); DOM.teamMemberSelect.value = currentSelection || ''; }
+            function renderPreferences() { DOM.preferenceList.innerHTML = ''; currentPreferences.forEach((date, i) => { const li = document.createElement('li'); li.className = `preference-item p-2 rounded hover:bg-gray-700 flex items-center justify-between ${i % 2 === 0 ? 'bg-gray-800/50' : ''}`; li.draggable = true; li.dataset.date = date; li.innerHTML = `<span>${i + 1}. ${formatDate(date)}</span><svg class="w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H8V6H10V4ZM16 4H14V6H16V4ZM10 8H8V10H10V8ZM16 8H14V10H16V8ZM10 12H8V14H10V12ZM16 12H14V14H16V12ZM10 16H8V18H10V16ZM16 16H14V18H16V16Z"></path></svg>`; DOM.preferenceList.appendChild(li); }); }
+            function renderTeamPriorities() { DOM.teamPrioritiesList.innerHTML = ''; groups.forEach((group, i) => { if (group.length > 0) { DOM.teamPrioritiesList.insertAdjacentHTML('beforeend', `<div class="bg-gray-900 p-3 rounded-md"><h4 class="font-semibold text-green-400 mb-2">Group ${i + 1} ${i === 0 ? '(Highest)' : ''}</h4><ol class="list-decimal list-inside text-sm space-y-1">${group.map(eng => `<li>${eng.name}</li>`).join('')}</ol></div>`) } }); }
+            function renderCalendar() { const _createOnCallDayCell = (day, dateString, dayType) => { const bgClasses = { saturday: 'bg-indigo-900/70', sunday: 'bg-indigo-950', holiday: 'bg-sky-950' }; const finalBgClass = bgClasses[dayType] || 'bg-blue-950/50'; const assigned = assignments[dateString] || []; const namesHTML = assigned.map((name, i) => { const engineer = allEngineers.find(e => e.name === name); const team = engineer ? engineer.team : ''; return `<div class="text-xs truncate assigned-name" data-name="${name}" data-date="${dateString}" data-team="${team}">${i + 1}. ${name}</div>` }).join(''); const isHighlighted = selectedEngineer && assigned.includes(selectedEngineer); const prefIndex = currentPreferences.indexOf(dateString); const prefRankHTML = prefIndex > -1 ? `<div class="preference-rank">${prefIndex + 1}</div>` : ''; const holidayNote = dayType === 'holiday' ? holidaysMap.get(dateString) : ''; const noteHTML = holidayNote ? `<div class="holiday-note">${holidayNote}</div>` : ''; return `<div class="calendar-day p-2 border border-gray-700/50 rounded-md flex flex-col ${finalBgClass} weekend-day ${selectedEngineer ? 'preference-possible cursor-pointer' : ''} ${isHighlighted ? 'ring-2 ring-blue-500' : ''}" data-date="${dateString}">${prefRankHTML}<div class="font-bold text-lg text-indigo-200">${day}</div><div class="mt-1 space-y-1 overflow-hidden flex-grow">${namesHTML}</div>${noteHTML}</div>`; }; const _createRegularDayCell = (day) => `<div class="p-2 bg-gray-800/50 rounded-md"><div class="font-bold text-gray-300">${day}</div></div>`; DOM.calendarGrid.innerHTML = ''; const year = currentDate.getFullYear(), month = currentDate.getMonth(); DOM.currentMonthYear.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`; const firstDay = new Date(year, month, 1).getDay(), daysInMonth = new Date(year, month + 1, 0).getDate(); for (let i = 0; i < firstDay; i++) DOM.calendarGrid.insertAdjacentHTML('beforeend', '<div></div>'); for (let day = 1; day <= daysInMonth; day++) { const date = new Date(year, month, day); const dateString = `${getMonthString(date)}-${date.getDate().toString().padStart(2, '0')}`; let dayType = ''; if (holidaysMap.has(dateString)) { dayType = 'holiday'; } else if (date.getDay() === 6) { dayType = 'saturday'; } else if (date.getDay() === 0) { dayType = 'sunday'; } if (dayType) { DOM.calendarGrid.insertAdjacentHTML('beforeend', _createOnCallDayCell(day, dateString, dayType)); } else { DOM.calendarGrid.insertAdjacentHTML('beforeend', _createRegularDayCell(day)); } } }
+            function updatePreferenceViewForSelectedEngineer() { const isEngSelected = !!selectedEngineer; DOM.preferenceInfo.classList.toggle('hidden', !isEngSelected); DOM.preferenceListContainer.classList.toggle('hidden', !isEngSelected); if (isEngSelected) { const engData = teamEngineers.find(eng => eng.name === selectedEngineer); currentPreferences = (engData?.preferences?.[getMonthString(currentDate)] || []).slice(); DOM.maxShiftsSelect.value = engData?.maxShifts !== undefined ? engData.maxShifts : 2; } else { currentPreferences = []; } renderPreferences(); }
+            function openManageShiftDialog(name, date, team) { DOM.modalTitle.textContent = `Manage Shift for ${name} on ${date}`; const teammates = allEngineers.filter(e => e.team === team && e.name !== name); DOM.swapEngineerSelect.innerHTML = ''; teammates.forEach(tm => DOM.swapEngineerSelect.add(new Option(tm.name, tm.name))); DOM.modalSwapBtn.dataset.date = date; DOM.modalSwapBtn.dataset.name = name; DOM.modalSwapBtn.dataset.team = team; DOM.modalRelinquishBtn.dataset.date = date; DOM.modalRelinquishBtn.dataset.name = name; DOM.manageShiftModal.classList.remove('hidden'); }
+            
+            // --- EVENT HANDLER SETUP ---
+            function setupCoreHandlers() { DOM.teamSelect.addEventListener('change', async () => { selectedEngineer = null; await initializeApp(false); }); DOM.teamMemberSelect.addEventListener('change', (e) => { selectedEngineer = e.target.value; updatePreferenceViewForSelectedEngineer(); renderCalendar(); }); DOM.prevMonthBtn.addEventListener('click', async () => { currentDate.setMonth(currentDate.getMonth() - 1); await initializeApp(false); }); DOM.nextMonthBtn.addEventListener('click', async () => { currentDate.setMonth(currentDate.getMonth() + 1); await initializeApp(false); }); }
+            function setupCalendarHandlers() { DOM.calendarGrid.addEventListener('click', (e) => { const assignedNameEl = e.target.closest('.assigned-name'); if (assignedNameEl) return openManageShiftDialog(assignedNameEl.dataset.name, assignedNameEl.dataset.date, assignedNameEl.dataset.team); if (!selectedEngineer) return; const cell = e.target.closest('.weekend-day'); if (!cell) return; const prefIndex = currentPreferences.indexOf(cell.dataset.date); if (prefIndex > -1) currentPreferences.splice(prefIndex, 1); else currentPreferences.push(cell.dataset.date); renderPreferences(); renderCalendar(); }); DOM.calendarGrid.addEventListener('mouseover', e => { const cell = e.target.closest('.weekend-day'); if (!cell) return; const requesters = dayPreferences[cell.dataset.date] || []; const requestersByTeam = {}; for (const req of requesters) { if (!requestersByTeam[req.team]) { requestersByTeam[req.team] = []; } requestersByTeam[req.team].push(req); } let html = `<div class="font-bold mb-2">Priority for ${formatDate(cell.dataset.date)}</div>`; const teams = Object.keys(requestersByTeam).sort(); if (teams.length > 0) { teams.forEach(team => { html += `<div class="mt-2"><strong class="text-sm text-indigo-400">${team} Team</strong><div class="text-xs space-y-1 mt-1">`; requestersByTeam[team].forEach(r => { html += `<span>${r.priority}. ${r.name} (Ranked #${r.rank})</span><br>`; }); html += `</div></div>`; }); } else { html += '<div class="text-xs text-gray-400">No requests for this day.</div>'; } DOM.dayTooltip.innerHTML = html; DOM.dayTooltip.style.display = 'block'; }); DOM.calendarGrid.addEventListener('mousemove', e => { DOM.dayTooltip.style.left = `${e.pageX + 15}px`; DOM.dayTooltip.style.top = `${e.pageY + 15}px`; }); DOM.calendarGrid.addEventListener('mouseout', e => { if (e.target.closest('.weekend-day')) DOM.dayTooltip.style.display = 'none'; }); }
+            function setupPreferenceHandlers() { DOM.analyzePrefsBtn.addEventListener('click', async () => { if (!selectedEngineer) return; try { const result = await apiCall('/api/analyze-chances', 'POST', { engineer: selectedEngineer, month: getMonthString(currentDate), preferences: currentPreferences }); let message = "Based on current data, your predicted schedule is:\n\n"; if (result.assigned_shifts && result.assigned_shifts.length > 0) { message += "ASSIGNED:\n" + result.assigned_shifts.map(d => `- ${formatDate(d)}`).join('\n'); } else { message += "ASSIGNED: None\n\nIt's likely your preferred shifts are being taken by engineers with higher priority for this month."; } alert(message); } catch(error) { alert(`Analysis failed: ${error.message}`); } }); DOM.savePrefsBtn.addEventListener('click', async () => { if (!selectedEngineer) return; try { await apiCall('/api/preferences', 'POST', { engineer: selectedEngineer, month: getMonthString(currentDate), preferences: currentPreferences, maxShifts: parseInt(DOM.maxShiftsSelect.value, 10) }); await initializeApp(false); alert('Preferences saved!'); } catch(error) { alert(`Error: ${error.message}`); } }); let draggedItem = null; DOM.preferenceList.addEventListener('dragstart', (e) => { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); }); DOM.preferenceList.addEventListener('dragend', (e) => e.target.classList.remove('dragging')); DOM.preferenceList.addEventListener('dragover', (e) => { e.preventDefault(); const afterElement = [...e.currentTarget.querySelectorAll('li:not(.dragging)')].reduce((closest, child) => { const box = child.getBoundingClientRect(), offset = e.clientY - box.top - box.height / 2; return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest; }, { offset: Number.NEGATIVE_INFINITY }).element; if (afterElement) e.currentTarget.insertBefore(draggedItem, afterElement); else e.currentTarget.appendChild(draggedItem); }); DOM.preferenceList.addEventListener('drop', () => { currentPreferences = [...DOM.preferenceList.querySelectorAll('li')].map(li => li.dataset.date); renderPreferences(); renderCalendar(); }); }
+            function setupModalHandlers() { DOM.modalCloseBtn.addEventListener('click', () => DOM.manageShiftModal.classList.add('hidden')); DOM.modalSwapBtn.addEventListener('click', async (e) => { const { name, date, team } = e.target.dataset, targetEngineer = DOM.swapEngineerSelect.value; if (!targetEngineer) return alert('Please select an engineer to swap with.'); if (!confirm(`Swap ${name} with ${targetEngineer}?`)) return; try { await apiCall('/api/manage-shift', 'POST', { originalEngineer: name, targetEngineer, date, team }); alert('Shift swapped!'); await initializeApp(false); DOM.manageShiftModal.classList.add('hidden'); } catch (error) { alert(`Error: ${error.message}`); } }); DOM.modalRelinquishBtn.addEventListener('click', (e) => { const { name, date } = e.target.dataset; const dateObj = new Date(date + 'T00:00:00'); const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); const subject = `Shift Giveaway or Swap – Date: ${date}`; const body = `Hi Team,\n\nI (${name}) would like to give away or swap my shift for the upcoming ${formattedDate}.\n\nPlease let me know if anyone would be interested in taking this shift.\n\nThanks,`; const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; window.open(gmailUrl, '_blank'); DOM.manageShiftModal.classList.add('hidden'); }); }
+            async function initializeApp(fetchTeams = true) { if (fetchTeams) { const teams = await apiCall('/api/teams'); populateTeamDropdown(teams); } await loadStateFromServer(DOM.teamSelect.value); populateEngineerDropdown(); updatePreferenceViewForSelectedEngineer(); renderCalendar(); renderTeamPriorities(); }
+            
+            async function init() {
+                await initializeApp(true);
+                setupCoreHandlers();
+                setupCalendarHandlers();
+                setupPreferenceHandlers();
+                setupModalHandlers();
+            }
+            
+            init();
+        });
     </script>
 </body>
 </html>
