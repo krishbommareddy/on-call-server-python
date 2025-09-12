@@ -1,9 +1,43 @@
-issues is in code 
+### Automated Testing: test_app.py
+This is a new file you should create in the same directory as app.py. It uses Python's unittest library to test your API.
 
-# unable to move to next month in the schudler page
-# when I choossing BSN option in select team option my preferance of On-Call Schedule page its not showing BSN employees.
+How to Run the Tests:
+Make sure you are in your virtual environment.
 
+From your terminal, in the project directory, run the command: ** python -m unittest test_app.py **
 
-#next improvements
-logo
-and consecuvtive days
+The tests will run and report any failures.
+
+===========================================
+## Further Stability Improvements
+You asked what other areas you can look at to create stable code. Based on our progress, here are the most impactful next steps you could take:
+
+## 1. Rigorous Input Validation
+We've added some character limits, which is a great start. The next level is to ensure the type and structure of all data coming into your API is correct before you try to process it.
+
+Example: When saving settings, check that shifts_per_day is a dictionary, and its values are integers. Check that preference_ranks_to_consider is a positive number.
+
+Benefit: This prevents corrupted or improperly formatted data from being saved to your schedule_data.json file, which is a common source of bugs.
+
+## 2. Enhanced Error Handling
+Right now, if an unexpected error happens on the backend, the server might crash or return a generic "500 Internal Server Error."
+
+Example: Wrap the entire contents of each API endpoint in a try...except block. If an unexpected exception occurs, you can log the full error for your own debugging and return a clean, user-friendly JSON message like {"error": "An unexpected server error occurred. Please contact the administrator."}.
+
+Benefit: This makes your application more resilient. It won't crash, and users will get a clear (though non-technical) message about what happened.
+
+## 3. Move from JSON to a Database
+This is the single most important step for creating a truly stable, multi-user application.
+
+Problem with JSON: If two admins try to save settings or generate a schedule at the exact same time, one person's changes could overwrite the other's, leading to data loss. A JSON file is not designed for simultaneous access.
+
+Solution: Migrating your data to a simple database like SQLite (which is built into Python and still uses a single file) or a more powerful one like PostgreSQL. A database handles "locking" to ensure that data is saved safely, even if multiple requests come in at once.
+
+Benefit: Eliminates the risk of data corruption from concurrent use and significantly improves performance as your data grows.
+
+## 4. Automated Testing
+This is a standard practice in professional software development. You write code that tests your main application code.
+
+Example: You could write a test for your scheduling algorithm. It would create a sample set of engineers and preferences, run the generate_schedule function, and then check if the output matches what you expect (e.g., did anyone get more shifts than they requested? Did anyone with "avoid consecutive" get back-to-back shifts?).
+
+Benefit: After you make a change, you can run all your tests automatically. If any test fails, you know you've introduced a regression (a new bug in old functionality) before you deploy your code. This builds a safety net and dramatically increases long-term stability.
