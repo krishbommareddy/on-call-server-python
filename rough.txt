@@ -7,6 +7,8 @@ Make sure you are in your virtual environment.
 From your terminal, in the project directory, run the command: ** python -m unittest test_app.py **
 
 The tests will run and report any failures.
+==========================================
+Improvement to the "All Team Preferences" feature in the admin page, it only shows that spefic month can 
 
 ===========================================
 ## Further Stability Improvements
