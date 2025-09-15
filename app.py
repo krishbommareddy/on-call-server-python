@@ -8,66 +8,84 @@ import random
 from functools import wraps
 from flask import Flask, jsonify, request, render_template, send_file
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm.attributes import flag_modified # FIX: Import the helper
+from flask_migrate import Migrate
 import io
 import math
 import re
+import os
 
+# --- App Initialization, Config, and Extensions ---
 app = Flask(__name__)
 CORS(app)
-
-# --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///scheduler.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
+# --- (The rest of the file is unchanged, but provided for completeness) ---
 # --- Constants ---
-DATA_FILE = 'schedule_data.json'
 EMAIL_REGEX = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-
 # --- Decorator for Error Handling ---
 def api_error_handler(f):
-    """A decorator to wrap all API endpoints with a try-except block."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
+        try: return f(*args, **kwargs)
         except Exception as e:
             logging.error(f"An error occurred in endpoint '{f.__name__}': {e}", exc_info=True)
             return jsonify({"error": "An unexpected server error occurred."}), 500
     return decorated_function
-
-# --- Data Handling Functions ---
-def load_data():
-    """Loads the main data file and creates a default structure if it doesn't exist."""
-    try:
-        with open(DATA_FILE, 'r') as f:
-            data = json.load(f)
-            if 'settings' not in data: data['settings'] = get_default_settings()
-            if 'engineers' not in data: data['engineers'] = {}
-            if 'teams' not in data: data['teams'] = {}
-            if 'holidays' not in data: data['holidays'] = []
-            return data
-    except (FileNotFoundError, json.JSONDecodeError):
-        return { "settings": get_default_settings(), "teams": {}, "engineers": {}, "holidays": [] }
-
-def get_default_settings():
-    """Returns the default application settings."""
-    return { "shifts_per_day": {}, "preference_ranks_to_consider": 10, "default_max_shifts": 2 }
-
-def save_data(data):
-    """Saves the provided data dictionary to the JSON file."""
-    with open(DATA_FILE, 'w') as f:
-        json.dump(data, f, indent=4)
-
-def get_engineers_by_team(all_engineers, team_name):
-    """Filters a dictionary of all engineers for a specific team."""
-    return [eng for eng in all_engineers.values() if eng.get('team') == team_name]
-
-def get_on_call_days(year, month, holidays):
-    """Calculates all weekends and specified holidays for a given month and year."""
-    days, holiday_dates = [], set()
-    if holidays and isinstance(holidays[0], dict):
-        holiday_dates = {h['date'] for h in holidays}
-    elif holidays:
-        holiday_dates = set(holidays)
+# --- Database Models ---
+class Team(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(8), unique=True, nullable=False)
+    baseGroups = db.Column(db.JSON, default=lambda: [[]])
+    monthlyPriorities = db.Column(db.JSON, default=lambda: {})
+    assignments = db.Column(db.JSON, default=lambda: {})
+    shifts_per_day = db.Column(db.Integer, default=1, nullable=False)
+    shift_overrides = db.Column(db.JSON, default=lambda: {})
+    def to_dict(self):
+        return { "name": self.name, "shifts_per_day": self.shifts_per_day, "baseGroups": self.baseGroups, "monthlyPriorities": self.monthlyPriorities, "assignments": self.assignments, "shift_overrides": self.shift_overrides }
+class Engineer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(12), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    maxShifts = db.Column(db.Integer, default=2, nullable=False)
+    consecutive_pref = db.Column(db.String(10), default='neutral', nullable=False)
+    preferences = db.Column(db.JSON, default=lambda: {})
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    team = db.relationship('Team', backref=db.backref('engineers', lazy='dynamic'))
+    def to_dict(self):
+        return { "name": self.name, "team": self.team.name, "email": self.email, "maxShifts": self.maxShifts, "preferences": self.preferences or {}, "consecutive_pref": self.consecutive_pref }
+class Holiday(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.String(10), unique=True, nullable=False)
+    note = db.Column(db.String(10), nullable=False, default='')
+    def to_dict(self):
+        return { "date": self.date, "note": self.note }
+class Setting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(50), unique=True, nullable=False)
+    value = db.Column(db.JSON)
+    def to_dict(self):
+        return { "key": self.key, "value": self.value }
+# --- Helper Functions ---
+def get_settings_from_db():
+    settings_db = Setting.query.all()
+    settings = {s.key: s.value for s in settings_db}
+    if 'preference_ranks_to_consider' not in settings:
+        s = Setting(key='preference_ranks_to_consider', value=10); db.session.add(s)
+        settings['preference_ranks_to_consider'] = 10
+    if 'default_max_shifts' not in settings:
+        s = Setting(key='default_max_shifts', value=2); db.session.add(s)
+        settings['default_max_shifts'] = 2
+    db.session.commit()
+    return settings
+def get_on_call_days_pure(year, month, holidays_list):
+    holiday_dates = {h['date'] for h in holidays_list}
+    days = []
     start_date, end_date = date(year, month, 1), date(year, month + 1, 1) if month < 12 else date(year + 1, 1, 1)
     d = start_date
     while d < end_date:
@@ -75,82 +93,94 @@ def get_on_call_days(year, month, holidays):
         if d.weekday() >= 5 or date_str in holiday_dates: days.append(date_str)
         d += timedelta(days=1)
     return sorted(list(set(days)))
-
-# --- Helper Functions ---
-def _calculate_monthly_priorities(data, team_name, month_str):
-    """Calculates the rotated priority order of engineers for a given team and month."""
-    team_data = data.get('teams', {}).get(team_name)
-    if not team_data: return [] 
-    all_engineers = data.get('engineers', {})
-    if month_str not in team_data.get('monthlyPriorities', {}):
-        sorted_months = sorted([m for m in team_data.get('monthlyPriorities', {}).keys() if m < month_str], reverse=True)
-        last_month_order = team_data['monthlyPriorities'].get(sorted_months[0]) if sorted_months else None
-        base_name_groups = [[name for name in group if name in all_engineers and all_engineers.get(name, {}).get('team') == team_name] for group in (last_month_order or team_data.get('baseGroups', [[]]))]
+def _calculate_monthly_priorities_and_save(team, all_engineers_map, month_str):
+    monthly_priorities = team.monthlyPriorities or {}
+    if month_str not in monthly_priorities:
+        sorted_months = sorted([m for m in monthly_priorities.keys() if m < month_str], reverse=True)
+        last_month_order = monthly_priorities.get(sorted_months[0]) if sorted_months else None
+        base_name_groups = [[name for name in group if name in all_engineers_map and all_engineers_map[name].team_id == team.id] for group in (last_month_order or team.baseGroups or [[]])]
         rotated_name_groups = copy.deepcopy(base_name_groups)
         if rotated_name_groups:
             rotated_name_groups.append(rotated_name_groups.pop(0))
             for group in rotated_name_groups:
                 if group: group.append(group.pop(0))
-        team_data.setdefault('monthlyPriorities', {})[month_str] = rotated_name_groups
-        save_data(data)
-    final_name_groups = team_data['monthlyPriorities'][month_str]
-    return [[all_engineers[name] for name in group if name in all_engineers] for group in final_name_groups]
-
-def _get_day_preferences(data, month_str):
-    """Gathers all preferences for each on-call day for the tooltip."""
+        team.monthlyPriorities = {**monthly_priorities, month_str: rotated_name_groups}
+        db.session.commit()
+    final_name_groups = team.monthlyPriorities[month_str]
+    return [[all_engineers_map[name] for name in group if name in all_engineers_map] for group in final_name_groups]
+def _get_day_preferences(month_str):
     year, month = map(int, month_str.split('-'))
-    on_call_days = get_on_call_days(year, month, data.get('holidays', []))
+    holidays = [h.to_dict() for h in Holiday.query.all()]
+    on_call_days = get_on_call_days_pure(year, month, holidays)
     day_preferences = {day: [] for day in on_call_days}
     all_priorities = {}
-    for team_name in data.get('teams', {}):
-        priority_groups = _calculate_monthly_priorities(data, team_name, month_str)
+    all_engineers_map = {eng.name: eng for eng in Engineer.query.all()}
+    for team in Team.query.all():
+        priority_groups = _calculate_monthly_priorities_and_save(team, all_engineers_map, month_str)
         flat_priority_list = [eng for group in priority_groups for eng in group]
-        all_priorities[team_name] = {eng['name']: i + 1 for i, eng in enumerate(flat_priority_list)}
-    for engineer in data.get('engineers', {}).values():
-        prefs = engineer.get('preferences', {}).get(month_str, [])
-        team = engineer.get('team')
+        all_priorities[team.name] = {eng.name: i + 1 for i, eng in enumerate(flat_priority_list)}
+    for engineer in all_engineers_map.values():
+        prefs = (engineer.preferences or {}).get(month_str, [])
         for i, pref_day in enumerate(prefs):
             if pref_day in day_preferences:
-                priority = all_priorities.get(team, {}).get(engineer['name'], 999)
-                day_preferences[pref_day].append({"name": engineer['name'], "team": team, "priority": priority, "rank": i + 1})
+                priority = all_priorities.get(engineer.team.name, {}).get(engineer.name, 999)
+                day_preferences[pref_day].append({"name": engineer.name, "team": engineer.team.name, "priority": priority, "rank": i + 1})
     for day in day_preferences: day_preferences[day].sort(key=lambda x: x['priority'])
     return day_preferences
-
-def run_schedule_simulation(data, month_str):
-    """A pure function that runs the scheduling algorithm without saving results."""
-    settings = data['settings']
+def run_schedule_simulation(month_str, teams_data, engineers_data, holidays_data, temp_engineer_prefs=None):
     year, month = map(int, month_str.split('-'))
-    on_call_days = get_on_call_days(year, month, data.get('holidays', []))
+    on_call_days = get_on_call_days_pure(year, month, holidays_data)
     on_call_days_map = {day: i for i, day in enumerate(on_call_days)}
-    final_assignments = {}
-    for team_name in data['teams']:
-        shifts_needed_per_day = settings['shifts_per_day'].get(team_name, 1)
-        monthly_priority_groups = _calculate_monthly_priorities(data, team_name, month_str)
-        monthly_priority_list = [eng for group in monthly_priority_groups for eng in group]
-        if not monthly_priority_list: continue
-        shifts_assigned_count = {eng['name']: 0 for eng in monthly_priority_list}
-        assignments = {day: [] for day in on_call_days}
-        max_shifts_requested = max((eng.get('maxShifts', 0) for eng in monthly_priority_list), default=0)
+    final_assignments = {day: [] for day in on_call_days}
+    all_engineers_map = {e['name']: e for e in engineers_data}
+    if temp_engineer_prefs:
+        eng_name = temp_engineer_prefs['engineer']
+        if eng_name in all_engineers_map:
+            all_engineers_map[eng_name]['preferences'][month_str] = temp_engineer_prefs['preferences']
+            all_engineers_map[eng_name]['maxShifts'] = temp_engineer_prefs['maxShifts']
+    for team_dict in teams_data:
+        team_name = team_dict['name']
+        team_engineers = [e for e in all_engineers_map.values() if e['team'] == team_name]
+        if not team_engineers: continue
+        monthly_priorities = team_dict.get('monthlyPriorities', {}) or {}
+        if month_str not in monthly_priorities:
+            sorted_months = sorted([m for m in monthly_priorities.keys() if m < month_str], reverse=True)
+            last_month_order = monthly_priorities.get(sorted_months[0]) if sorted_months else None
+            base_name_groups = [[name for name in group if name in all_engineers_map and all_engineers_map[name]['team'] == team_dict['name']] for group in (last_month_order or team_dict.get('baseGroups', [[]]))]
+            rotated_name_groups = copy.deepcopy(base_name_groups)
+            if rotated_name_groups:
+                rotated_name_groups.append(rotated_name_groups.pop(0))
+                for group in rotated_name_groups:
+                    if group: group.append(group.pop(0))
+            priority_groups_names = rotated_name_groups
+        else:
+            priority_groups_names = monthly_priorities[month_str]
+        monthly_priority_list = [all_engineers_map[name] for group in priority_groups_names for name in group if name in all_engineers_map]
+        shifts_assigned_count = {eng['name']: 0 for eng in team_engineers}
+        team_assignments_this_month = {day: [] for day in on_call_days}
+        max_shifts_requested = max((eng.get('maxShifts', 0) for eng in team_engineers), default=0)
+        shift_overrides = team_dict.get('shift_overrides', {}) or {}
+        default_shifts_needed = team_dict.get('shifts_per_day', 1)
         for _ in range(max_shifts_requested):
             for engineer in monthly_priority_list:
                 if shifts_assigned_count[engineer['name']] < engineer.get('maxShifts', 0):
-                    preferences = engineer.get('preferences', {}).get(month_str, [])
+                    preferences = (engineer.get('preferences') or {}).get(month_str, [])
                     if not preferences: continue
                     for preferred_day in preferences:
-                        is_slot_available = preferred_day in assignments and len(assignments[preferred_day]) < shifts_needed_per_day
-                        is_already_assigned = engineer['name'] in assignments[preferred_day]
+                        shifts_needed_for_this_day = shift_overrides.get(preferred_day, default_shifts_needed)
+                        is_slot_available = preferred_day in team_assignments_this_month and len(team_assignments_this_month[preferred_day]) < shifts_needed_for_this_day
+                        is_already_assigned = engineer['name'] in team_assignments_this_month[preferred_day]
                         if is_slot_available and not is_already_assigned:
-                            consecutive_pref = engineer.get('consecutive_pref', 'neutral')
-                            if consecutive_pref == 'avoid':
+                            if engineer.get('consecutive_pref') == 'avoid':
                                 day_index = on_call_days_map.get(preferred_day)
                                 is_assigned_adjacent = False
-                                if day_index > 0 and engineer['name'] in assignments.get(on_call_days[day_index - 1], []): is_assigned_adjacent = True
-                                if not is_assigned_adjacent and day_index < len(on_call_days) - 1 and engineer['name'] in assignments.get(on_call_days[day_index + 1], []): is_assigned_adjacent = True
+                                if day_index > 0 and engineer['name'] in team_assignments_this_month.get(on_call_days[day_index - 1], []): is_assigned_adjacent = True
+                                if not is_assigned_adjacent and day_index < len(on_call_days) - 1 and engineer['name'] in team_assignments_this_month.get(on_call_days[day_index + 1], []): is_assigned_adjacent = True
                                 if is_assigned_adjacent: continue
-                            assignments[preferred_day].append(engineer['name'])
+                            team_assignments_this_month[preferred_day].append(engineer['name'])
                             shifts_assigned_count[engineer['name']] += 1
-                            break 
-        for day, names in assignments.items():
+                            break
+        for day, names in team_assignments_this_month.items():
             final_assignments.setdefault(day, []).extend(names)
     return final_assignments
 
@@ -158,205 +188,156 @@ def run_schedule_simulation(data, month_str):
 @app.route("/api/data", methods=['GET'])
 @api_error_handler
 def handle_data():
-    """Provides all data needed to render the main scheduler page."""
     viewing_month = request.args.get('month', datetime.now().strftime('%Y-%m'))
-    data = load_data()
-    available_teams = list(data.get('teams', {}).keys())
-    team_name = request.args.get('team', available_teams[0] if available_teams else '')
-    if not team_name or team_name not in data.get('teams', {}): return jsonify({"groups": [], "assignments": {}, "holidays": [], "dayPreferences": {}, "teamEngineers": [], "allEngineers": [], "selectedTeam": ''})
-    
-    # FIX: Initialize assignments with all on-call days to prevent KeyErrors
+    teams = Team.query.order_by(Team.name).all()
+    if not teams: return jsonify({"groups": [], "assignments": {}, "holidays": [], "dayPreferences": {}, "teamEngineers": [], "allEngineers": [], "selectedTeam": ''})
+    team_name = request.args.get('team', teams[0].name)
+    current_team = next((t for t in teams if t.name == team_name), teams[0])
     year, month = map(int, viewing_month.split('-'))
-    on_call_days = get_on_call_days(year, month, data.get('holidays', []))
+    holidays = [h.to_dict() for h in Holiday.query.all()]
+    on_call_days = get_on_call_days_pure(year, month, holidays)
     all_assignments = {day: [] for day in on_call_days}
-
-    # Populate with saved assignments
-    for t_data in data.get('teams', {}).values():
-        for day, names in t_data.get('assignments', {}).items():
-            if day in all_assignments:
-                all_assignments[day].extend(names)
-
-    rotated_order_groups = _calculate_monthly_priorities(data, team_name, viewing_month)
-    all_engineers_list = sorted(data.get('engineers', {}).values(), key=lambda x: x['name'])
-    team_engineers = [eng for eng in all_engineers_list if eng['team'] == team_name]
-    return jsonify({ "groups": rotated_order_groups, "assignments": all_assignments, "holidays": data.get('holidays', []), "dayPreferences": _get_day_preferences(data, viewing_month), "teamEngineers": team_engineers, "allEngineers": all_engineers_list, "selectedTeam": team_name })
+    for team in teams:
+        team_assignments = team.assignments or {}
+        for day, names in team_assignments.items():
+            if day in all_assignments: all_assignments[day].extend(names)
+    all_engineers_map = {eng.name: eng for eng in Engineer.query.all()}
+    rotated_order_groups = _calculate_monthly_priorities_and_save(current_team, all_engineers_map, viewing_month)
+    all_engineers_list = [e.to_dict() for e in Engineer.query.order_by(Engineer.name).all()]
+    team_engineers = [e for e in all_engineers_list if e['team'] == current_team.name]
+    return jsonify({ "groups": [[e.to_dict() for e in group] for group in rotated_order_groups], "assignments": all_assignments, "holidays": holidays, "dayPreferences": _get_day_preferences(viewing_month), "teamEngineers": team_engineers, "allEngineers": all_engineers_list, "selectedTeam": current_team.name })
 
 @app.route("/api/generate-schedule", methods=['POST'])
 @api_error_handler
 def generate_schedule():
-    """Generates the schedule for a given month and saves the result."""
-    data = load_data()
     month_str = request.get_json().get('month')
-    new_assignments_by_day = run_schedule_simulation(data, month_str)
-    for team_name, team_data in data['teams'].items():
-        team_data['assignments'] = {d: v for d, v in team_data.get('assignments', {}).items() if not d.startswith(month_str)}
-        team_assignments = {day: [] for day in new_assignments_by_day}
-        team_engineers = {eng['name'] for eng in get_engineers_by_team(data['engineers'], team_name)}
+    teams_data = [t.to_dict() for t in Team.query.all()]
+    engineers_data = [e.to_dict() for e in Engineer.query.all()]
+    holidays_data = [h.to_dict() for h in Holiday.query.all()]
+    new_assignments_by_day = run_schedule_simulation(month_str, teams_data, engineers_data, holidays_data)
+    for team in Team.query.all():
+        team_assignments = team.assignments or {}
+        for day in list(team_assignments.keys()):
+            if day.startswith(month_str): del team_assignments[day]
+        team_engineers = {e.name for e in team.engineers}
         for day, names in new_assignments_by_day.items():
-            team_assignments[day] = [name for name in names if name in team_engineers]
-        team_data['assignments'].update(team_assignments)
-    save_data(data)
+            if day.startswith(month_str):
+                team_specific_names = [name for name in names if name in team_engineers]
+                if team_specific_names: team_assignments[day] = team_specific_names
+        team.assignments = {**team_assignments}
+    db.session.commit()
     return jsonify({"message": f"Schedule for {month_str} generated successfully."})
 
 @app.route("/api/analyze-chances", methods=['POST'])
 @api_error_handler
 def analyze_chances():
-    """A read-only endpoint to simulate the schedule with a user's tentative preferences."""
-    data = copy.deepcopy(load_data())
     payload = request.get_json()
-    month_str, eng_name, tentative_preferences = payload.get('month'), payload.get('engineer'), payload.get('preferences')
-    if not (month_str and eng_name and tentative_preferences is not None): return jsonify({"error": "Missing data for analysis."}), 400
-    if eng_name in data['engineers']:
-        data['engineers'][eng_name].setdefault('preferences', {})[month_str] = tentative_preferences
-    else: return jsonify({"error": "Engineer not found."}), 404
-    simulated_assignments = run_schedule_simulation(data, month_str)
+    month_str, eng_name = payload.get('month'), payload.get('engineer')
+    if not all([month_str, eng_name]): return jsonify({"error": "Missing data for analysis."}), 400
+    teams_data = [t.to_dict() for t in Team.query.all()]
+    engineers_data = [e.to_dict() for e in Engineer.query.all()]
+    holidays_data = [h.to_dict() for h in Holiday.query.all()]
+    temp_prefs = { 'engineer': eng_name, 'preferences': payload.get('preferences', []), 'maxShifts': payload.get('maxShifts', 2) }
+    simulated_assignments = run_schedule_simulation(month_str, teams_data, engineers_data, holidays_data, temp_engineer_prefs=temp_prefs)
     assigned_shifts = [day for day, names in simulated_assignments.items() if eng_name in names]
     return jsonify({"assigned_shifts": sorted(assigned_shifts)})
 
 @app.route("/api/preferences", methods=['POST'])
 @api_error_handler
 def handle_preferences():
-    """Saves an engineer's preferences, including max shifts and consecutive preference."""
-    data = load_data()
-    payload = request.get_json()
-    if not all(k in payload for k in ['engineer', 'month', 'preferences', 'maxShifts', 'consecutivePref']):
-        return jsonify({"error": "Invalid preference data submitted."}), 400
-    eng_name = payload.get('engineer')
-    if eng_name in data['engineers']:
-        eng = data['engineers'][eng_name]
-        eng.setdefault('preferences', {})[payload.get('month')] = payload.get('preferences')
-        eng['maxShifts'] = int(payload.get('maxShifts'))
-        eng['consecutive_pref'] = payload.get('consecutivePref')
-        save_data(data)
+    payload = request.get_json();
+    if not all(k in payload for k in ['engineer', 'month', 'preferences', 'maxShifts', 'consecutivePref']): return jsonify({"error": "Invalid preference data."}), 400
+    eng = Engineer.query.filter_by(name=payload.get('engineer')).first()
+    if eng:
+        eng.preferences = {**(eng.preferences or {}), payload.get('month'): payload.get('preferences')}
+        eng.maxShifts = int(payload.get('maxShifts'))
+        eng.consecutive_pref = payload.get('consecutivePref')
+        db.session.commit()
         return jsonify({"message": "Preferences saved."})
     return jsonify({"error": "Engineer not found"}), 404
 
 @app.route("/api/holidays", methods=['GET', 'POST'])
 @api_error_handler
 def handle_holidays():
-    """Gets or updates the list of holidays."""
-    data = load_data()
-    if request.method == 'GET': return jsonify(data.get('holidays', []))
+    if request.method == 'GET': return jsonify([h.to_dict() for h in Holiday.query.all()])
     holidays_data = request.get_json().get('holidays', [])
-    if isinstance(holidays_data, list):
-        data['holidays'] = holidays_data
-        save_data(data)
-        return jsonify({"message": "Holidays updated."})
-    return jsonify({"error": "Invalid data format for holidays."}), 400
-
-@app.route("/api/manage-shift", methods=['POST'])
-@api_error_handler
-def manage_shift():
-    """Handles a manual shift swap between two engineers."""
-    data = load_data()
-    payload = request.get_json()
-    shift_date, original_engineer, team_name, target_engineer = payload.get('date'), payload.get('originalEngineer'), payload.get('team'), payload.get('targetEngineer')
-    if not all([shift_date, original_engineer, team_name, target_engineer]): return jsonify({"error": "Missing required fields"}), 400
-    team_assignments = data['teams'][team_name]['assignments']
-    if shift_date not in team_assignments or original_engineer not in team_assignments.get(shift_date, []): return jsonify({"error": "Assignment not found"}), 404
-    try:
-        index = team_assignments[shift_date].index(original_engineer)
-        team_assignments[shift_date][index] = target_engineer
-    except ValueError: return jsonify({"error": "Original engineer not found"}), 404
-    save_data(data)
-    return jsonify({"message": "Shift swapped successfully."})
+    if not isinstance(holidays_data, list): return jsonify({"error": "Invalid data format."}), 400
+    Holiday.query.delete()
+    for h_data in holidays_data: db.session.add(Holiday(date=h_data['date'], note=h_data.get('note', '')))
+    db.session.commit()
+    return jsonify({"message": "Holidays updated."})
 
 @app.route("/api/settings", methods=['GET', 'POST'])
 @api_error_handler
 def handle_settings():
-    """Gets or updates the global application settings."""
-    data = load_data()
-    if request.method == 'GET': return jsonify(data.get('settings', get_default_settings()))
-    new_settings = request.get_json()
-    if not isinstance(new_settings.get('shifts_per_day'), dict) or \
-       not isinstance(new_settings.get('preference_ranks_to_consider'), int) or \
-       not isinstance(new_settings.get('default_max_shifts'), int):
-        return jsonify({"error": "Invalid settings format."}), 400
-    data['settings'] = new_settings
-    save_data(data)
+    if request.method == 'GET':
+        settings = get_settings_from_db()
+        settings['shifts_per_day'] = {t.name: t.shifts_per_day for t in Team.query.all()}
+        return jsonify(settings)
+    payload = request.get_json()
+    Setting.query.filter_by(key='preference_ranks_to_consider').first().value = payload.get('preference_ranks_to_consider')
+    Setting.query.filter_by(key='default_max_shifts').first().value = payload.get('default_max_shifts')
+    for team_name, shifts in payload.get('shifts_per_day', {}).items():
+        team = Team.query.filter_by(name=team_name).first()
+        if team: team.shifts_per_day = shifts
+    db.session.commit()
     return jsonify({"message": "Settings updated successfully."})
 
 @app.route("/api/engineers", methods=['GET', 'POST'])
 @api_error_handler
 def handle_engineers():
-    """Gets the list of all engineers, or adds a new one with validation."""
-    data = load_data()
-    if request.method == 'GET': return jsonify(sorted(data.get('engineers', {}).values(), key=lambda x: x['name']))
+    if request.method == 'GET': return jsonify([e.to_dict() for e in Engineer.query.order_by(Engineer.name).all()])
     payload = request.get_json()
-    name, team, email = payload.get('name'), payload.get('team'), payload.get('email')
-    if not all([name, team, email]): return jsonify({"error": "Name, team, and email are mandatory fields."}), 400
+    name, team_name, email = payload.get('name'), payload.get('team'), payload.get('email')
+    if not all([name, team_name, email]): return jsonify({"error": "Name, team, and email are mandatory fields."}), 400
     if not re.match(EMAIL_REGEX, email): return jsonify({"error": "Invalid email format."}), 400
     if len(name) > 12: return jsonify({"error": "Engineer name cannot exceed 12 characters."}), 400
-    if team not in data['teams']: return jsonify({"error": f"Team '{team}' does not exist."}), 400
-    existing_names_lower = {n.lower() for n in data['engineers'].keys()}
-    if name.lower() in existing_names_lower: return jsonify({"error": "Engineer with that name already exists (case-insensitive)."}), 409
-    data['engineers'][name] = { "name": name, "team": team, "email": email, "maxShifts": data['settings']['default_max_shifts'], "preferences": {}, "consecutive_pref": "neutral" }
-    team_groups = data['teams'][team]['baseGroups']
-    if not team_groups: team_groups.append([])
-    smallest_group = min(team_groups, key=len)
+    if Engineer.query.filter(db.func.lower(Engineer.name) == name.lower()).first(): return jsonify({"error": "Engineer with that name already exists (case-insensitive)."}), 409
+    team = Team.query.filter_by(name=team_name).first()
+    if not team: return jsonify({"error": f"Team '{team_name}' does not exist."}), 400
+    settings = get_settings_from_db()
+    new_engineer = Engineer(name=name, team_id=team.id, email=email, maxShifts=settings['default_max_shifts'])
+    db.session.add(new_engineer)
+    base_groups = team.baseGroups or [[]]
+    if not base_groups or not base_groups[0]: base_groups = [[]]
+    smallest_group = min(base_groups, key=len)
     smallest_group.append(name)
-    data['teams'][team]['monthlyPriorities'] = {}
-    save_data(data)
-    return jsonify({"message": f"Engineer {name} added to {team}."})
-
-@app.route("/api/engineers/<string:name>", methods=['DELETE'])
-@api_error_handler
-def delete_engineer(name):
-    """Deletes an engineer from the system."""
-    data = load_data()
-    if name not in data.get('engineers', {}): return jsonify({"error": "Engineer not found"}), 404
-    team = data['engineers'][name].get('team')
-    del data['engineers'][name]
-    if team and team in data['teams']:
-        data['teams'][team]['baseGroups'] = [[eng_name for eng_name in g if eng_name != name] for g in data['teams'][team]['baseGroups']]
-        data['teams'][team]['monthlyPriorities'] = {}
-    for t_data in data['teams'].values():
-        for day in list(t_data.get('assignments', {})):
-            t_data['assignments'][day] = [n for n in t_data['assignments'][day] if n != name]
-    save_data(data)
-    return jsonify({"message": f"Engineer {name} deleted."})
+    team.baseGroups, team.monthlyPriorities = copy.deepcopy(base_groups), {}
+    db.session.commit()
+    return jsonify({"message": f"Engineer {name} added to {team_name}."})
 
 @app.route("/api/teams", methods=['GET', 'POST'])
 @api_error_handler
 def handle_teams():
-    """Gets a list of all team names, or creates a new team."""
-    data = load_data()
-    if request.method == 'GET':
-        return jsonify(sorted(list(data.get('teams', {}).keys())))
+    if request.method == 'GET': return jsonify([t.name for t in Team.query.order_by(Team.name).all()])
     payload = request.get_json()
     team_name = payload.get('name')
     if not team_name: return jsonify({"error": "Team name is required."}), 400
     if len(team_name) > 8: return jsonify({"error": "Team name cannot exceed 8 characters."}), 400
-    existing_teams_lower = {t.lower() for t in data['teams'].keys()}
-    if team_name.lower() in existing_teams_lower:
-        return jsonify({"error": f"Team '{team_name}' already exists (case-insensitive)."}), 409
-    data['teams'][team_name] = {"baseGroups": [[]], "monthlyPriorities": {}, "assignments": {}}
-    data['settings']['shifts_per_day'][team_name] = 1
-    save_data(data)
+    if Team.query.filter(db.func.lower(Team.name) == team_name.lower()).first(): return jsonify({"error": f"Team '{team_name}' already exists (case-insensitive)."}), 409
+    new_team = Team(name=team_name, shifts_per_day=1)
+    db.session.add(new_team)
+    db.session.commit()
     return jsonify({"message": f"Team '{team_name}' created successfully."})
 
 @app.route("/api/teams/<string:team_name>", methods=['DELETE'])
 @api_error_handler
 def delete_team(team_name):
-    """Deletes a team and all engineers associated with it."""
-    data = load_data()
-    if team_name not in data.get('teams', {}): return jsonify({"error": "Team not found."}), 404
-    engineers_to_delete = [name for name, eng in data['engineers'].items() if eng['team'] == team_name]
-    for name in engineers_to_delete: del data['engineers'][name]
-    del data['teams'][team_name]
-    if team_name in data['settings']['shifts_per_day']: del data['settings']['shifts_per_day'][team_name]
-    save_data(data)
+    team = Team.query.filter_by(name=team_name).first()
+    if not team: return jsonify({"error": "Team not found."}), 404
+    Engineer.query.filter_by(team_id=team.id).delete()
+    db.session.delete(team)
+    db.session.commit()
     return jsonify({"message": f"Team {team_name} and all its engineers have been deleted."})
 
 @app.route("/api/rebalance-teams", methods=['POST'])
 @api_error_handler
 def rebalance_teams():
-    """Re-distributes all engineers on a team into new, balanced groups."""
-    data = load_data()
     payload = request.get_json()
     team_name, group_size, seed = payload.get('team'), int(payload.get('groupSize', 5)), payload.get('seed')
-    if not team_name or team_name not in data['teams']: return jsonify({"error": "Valid team is required."}), 400
-    team_engineers = [name for name, eng in data['engineers'].items() if eng['team'] == team_name]
+    team = Team.query.filter_by(name=team_name).first()
+    if not team: return jsonify({"error": "Valid team is required."}), 400
+    team_engineers = [e.name for e in team.engineers]
     if seed: random.seed(seed)
     random.shuffle(team_engineers)
     num_groups = math.ceil(len(team_engineers) / group_size) if group_size > 0 else 1
@@ -364,84 +345,157 @@ def rebalance_teams():
     else:
         new_groups = [[] for _ in range(num_groups)]
         for i, engineer_name in enumerate(team_engineers): new_groups[i % num_groups].append(engineer_name)
-    data['teams'][team_name]['baseGroups'] = new_groups
-    data['teams'][team_name]['monthlyPriorities'] = {}
-    save_data(data)
+    team.baseGroups = new_groups
+    team.monthlyPriorities = {}
+    db.session.commit()
     return jsonify({"message": f"Team {team_name} has been re-balanced into {num_groups} groups."})
 
-@app.route("/api/bulk-actions", methods=['POST'])
+@app.route("/api/shift-overrides", methods=['GET', 'POST'])
 @api_error_handler
-def bulk_actions():
-    """Performs a bulk action, e.g., updating max shifts for all engineers."""
-    data = load_data()
-    payload = request.get_json()
-    action, value = payload.get('action'), payload.get('value')
-    if action == 'apply_default_max_shifts':
-        new_max_shifts = int(value)
-        if new_max_shifts >= 0:
-            for eng_data in data.get('engineers', {}).values(): eng_data['maxShifts'] = new_max_shifts
-            save_data(data)
-            return jsonify({"message": f"All engineers updated to {new_max_shifts} max shifts."})
-        return jsonify({"error": "Invalid value for max shifts."}), 400
-    return jsonify({"error": "Unknown bulk action."}), 400
+def handle_shift_overrides():
+    team_name = request.args.get('team')
+    team = Team.query.filter_by(name=team_name).first()
+    if not team: return jsonify({"error": "Team not found"}), 404
+    if request.method == 'GET': return jsonify(team.shift_overrides or {})
+    overrides = request.get_json()
+    current_overrides = team.shift_overrides or {}
+    for day, count in overrides.items():
+        if count is not None and count != '':
+            current_overrides[day] = int(count)
+        elif day in current_overrides:
+            del current_overrides[day]
+    team.shift_overrides = {**current_overrides}
+    db.session.commit()
+    return jsonify({"message": "Shift overrides updated successfully."})
 
-@app.route("/api/admin-dashboard", methods=['GET'])
+@app.route("/api/on-call-days", methods=['GET'])
 @api_error_handler
-def admin_dashboard():
-    """Endpoint for the admin dashboard. Provides summary reports."""
-    data = load_data()
-    month_str = request.args.get('month', datetime.now().strftime('%Y-%m'))
-    available_teams = list(data.get('teams', {}).keys())
-    team_name = request.args.get('team', available_teams[0] if available_teams else '')
-    if not team_name: return jsonify({"noPreferences": [], "shiftDiscrepancies": [], "allTeamPreferences": {}, "onCallDays": []})
-    all_engineers_map = data.get('engineers', {})
-    team_engineers = get_engineers_by_team(all_engineers_map, team_name)
-    no_prefs = [{"name": e['name']} for e in team_engineers if not e.get('preferences', {}).get(month_str)]
-    discrepancies, shifts_this_month = [], {e['name']: 0 for e in team_engineers}
-    team_assignments = data.get('teams', {}).get(team_name, {}).get('assignments', {})
-    for day, names in team_assignments.items():
-        if day.startswith(month_str):
-            for name in names:
-                if name in shifts_this_month: shifts_this_month[name] += 1
-    for eng in team_engineers:
-        requested, actual = eng.get('maxShifts', 2), shifts_this_month.get(eng['name'], 0)
-        if actual != requested:
-            discrepancies.append({"name": eng['name'], "requested": requested, "actual": actual})
-    all_team_preferences = {}
-    for t_name in data.get('teams', {}):
-        engineers_in_team = get_engineers_by_team(all_engineers_map, t_name)
-        if not engineers_in_team: continue
-        prefs = [{"name": e['name'], "maxShifts": e.get('maxShifts', 2), "preferences": e.get('preferences', {}).get(month_str, [])} for e in engineers_in_team]
-        all_team_preferences[t_name] = sorted(prefs, key=lambda x: x['name'])
-    holidays = data.get('holidays', [])
-    year, month = map(int, month_str.split('-'))
-    on_call_days_for_month = get_on_call_days(year, month, holidays)
-    return jsonify({ "noPreferences": sorted(no_prefs, key=lambda x: x['name']), "shiftDiscrepancies": sorted(discrepancies, key=lambda x: x['name']), "allTeamPreferences": all_team_preferences, "onCallDays": on_call_days_for_month })
-
-@app.route("/api/reset-schedule", methods=['POST'])
-@api_error_handler
-def reset_schedule():
-    """Resets all assignments for a given month."""
-    data = load_data()
-    month_str = request.get_json().get('month')
-    if not month_str: return jsonify({"error": "Month is required"}), 400
-    for team_data in data['teams'].values():
-        team_data['assignments'] = { d: v for d, v in team_data.get('assignments', {}).items() if not d.startswith(month_str) }
-    save_data(data)
-    return jsonify({"message": "Schedule reset."})
+def get_on_call_days_api():
+    year = int(request.args.get('year'))
+    month = int(request.args.get('month'))
+    holidays = [h.to_dict() for h in Holiday.query.all()]
+    return jsonify(get_on_call_days_pure(year, month, holidays))
 
 @app.route('/api/backup', methods=['GET'])
 @api_error_handler
 def backup_data():
-    """Provides the current data file as a downloadable backup."""
-    data = load_data()
-    mem_file = io.BytesIO()
-    mem_file.write(json.dumps(data, indent=4).encode('utf-8'))
+    settings = get_settings_from_db()
+    data = { "teams": {t.name: t.to_dict() for t in Team.query.all()}, "engineers": {e.name: e.to_dict() for e in Engineer.query.all()}, "holidays": [h.to_dict() for h in Holiday.query.all()], "settings": settings }
+    mem_file = io.BytesIO(json.dumps(data, indent=4).encode('utf-8'))
     mem_file.seek(0)
     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
     filename = f"scheduler_backup_{timestamp}.json"
     return send_file(mem_file, as_attachment=True, download_name=filename, mimetype='application/json')
 
+@app.route("/api/reset-schedule", methods=['POST'])
+@api_error_handler
+def reset_schedule():
+    month_str = request.get_json().get('month')
+    if not month_str: return jsonify({"error": "Month is required"}), 400
+    for team in Team.query.all():
+        current_assignments = team.assignments or {}
+        assignments_to_keep = {day: names for day, names in current_assignments.items() if not day.startswith(month_str)}
+        team.assignments = assignments_to_keep
+    db.session.commit()
+    return jsonify({"message": "Schedule reset."})
+
+@app.route("/api/engineers/<string:name>", methods=['DELETE'])
+@api_error_handler
+def delete_engineer(name):
+    eng = Engineer.query.filter_by(name=name).first()
+    if not eng: return jsonify({"error": "Engineer not found"}), 404
+    team = eng.team
+    db.session.delete(eng)
+    db.session.commit()
+    new_base_groups = [[n for n in g if n != name] for g in (team.baseGroups or [[]])]
+    team.baseGroups = new_base_groups
+    team.monthlyPriorities = {}
+    db.session.commit()
+    return jsonify({"message": f"Engineer {name} deleted."})
+
+@app.route("/api/bulk-actions", methods=['POST'])
+@api_error_handler
+def bulk_actions():
+    payload = request.get_json()
+    action, value = payload.get('action'), payload.get('value')
+    if action == 'apply_default_max_shifts':
+        new_max_shifts = int(value)
+        if new_max_shifts >= 0:
+            Engineer.query.update({Engineer.maxShifts: new_max_shifts})
+            db.session.commit()
+            return jsonify({"message": f"All engineers updated to {new_max_shifts} max shifts."})
+        return jsonify({"error": "Invalid value for max shifts."}), 400
+    return jsonify({"error": "Unknown bulk action."}), 400
+
+@app.route("/api/manage-shift", methods=['POST'])
+@api_error_handler
+def manage_shift():
+    """Handles a manual shift swap between two engineers."""
+    payload = request.get_json()
+    shift_date, original_engineer_name, team_name, target_engineer_name = payload.get('date'), payload.get('originalEngineer'), payload.get('team'), payload.get('targetEngineer')
+    if not all([shift_date, original_engineer_name, team_name, target_engineer_name]): return jsonify({"error": "Missing required fields"}), 400
+    
+    team = Team.query.filter_by(name=team_name).first()
+    if not team: return jsonify({"error": "Team not found"}), 404
+    
+    team_assignments = team.assignments or {}
+    if shift_date not in team_assignments or original_engineer_name not in team_assignments.get(shift_date, []):
+        return jsonify({"error": "Assignment not found"}), 404
+    
+    try:
+        index = team_assignments[shift_date].index(original_engineer_name)
+        team_assignments[shift_date][index] = target_engineer_name
+        flag_modified(team, "assignments") # Explicitly flag the JSON field for change
+        db.session.commit()
+        return jsonify({"message": "Shift swapped successfully."})
+    except ValueError:
+        return jsonify({"error": "Original engineer not found in that shift"}), 404
+
+@app.route("/api/admin-dashboard", methods=['GET'])
+@api_error_handler
+def admin_dashboard():
+    month_str = request.args.get('month', datetime.now().strftime('%Y-%m'))
+    teams = Team.query.order_by(Team.name).all()
+    if not teams: return jsonify({"noPreferences": [], "shiftDiscrepancies": [], "preferenceReports": [], "understaffedShifts": []})
+    team_name = request.args.get('team', teams[0].name)
+    current_team = next((t for t in teams if t.name == team_name), teams[0])
+    year, month = map(int, month_str.split('-'))
+    team_engineers = current_team.engineers.all()
+    no_prefs = [{"name": e.name} for e in team_engineers if not (e.preferences or {}).get(month_str)]
+    discrepancies, understaffed_shifts = [], []
+    shifts_this_month = {e.name: 0 for e in team_engineers}
+    team_assignments = current_team.assignments or {}
+    holidays = [h.to_dict() for h in Holiday.query.all()]
+    on_call_days_for_month = get_on_call_days_pure(year, month, holidays)
+    for day in on_call_days_for_month:
+        assigned_count = len(team_assignments.get(day, []))
+        required_count = (current_team.shift_overrides or {}).get(day, current_team.shifts_per_day)
+        if assigned_count < required_count:
+            understaffed_shifts.append({"date": day, "assigned": assigned_count, "required": required_count})
+        for name in team_assignments.get(day, []):
+            if name in shifts_this_month: shifts_this_month[name] += 1
+    for eng in team_engineers:
+        requested, actual = eng.maxShifts, shifts_this_month.get(eng.name, 0)
+        if actual != requested:
+            discrepancies.append({"name": eng.name, "requested": requested, "actual": actual})
+    preference_reports = []
+    start_date = date(year, month, 1)
+    for i in range(3):
+        target_year = start_date.year + (start_date.month + i - 1) // 12
+        target_month_num = (start_date.month + i - 1) % 12 + 1
+        target_date = date(target_year, target_month_num, 1)
+        target_month_str = target_date.strftime('%Y-%m')
+        report = {"month": target_month_str, "onCallDays": get_on_call_days_pure(target_date.year, target_date.month, holidays), "teamPreferences": {}}
+        for team in teams:
+            team_prefs = []
+            for e in team.engineers.order_by(Engineer.name).all():
+                eng_dict = e.to_dict()
+                eng_dict['preferences'] = (eng_dict.get('preferences') or {}).get(target_month_str, [])
+                team_prefs.append(eng_dict)
+            report["teamPreferences"][team.name] = team_prefs
+        preference_reports.append(report)
+    return jsonify({ "noPreferences": sorted(no_prefs, key=lambda x: x['name']), "shiftDiscrepancies": sorted(discrepancies, key=lambda x: x['name']), "understaffedShifts": sorted(understaffed_shifts, key=lambda x: x['date']), "preferenceReports": preference_reports })
+    
 # --- HTML Rendering ---
 @app.route("/admin")
 def admin_page(): return render_template('admin.html')
